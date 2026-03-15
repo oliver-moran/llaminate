@@ -1,0 +1,29 @@
+{
+  "name": "llaminate",
+  "version": "0.1.0",
+  "description": "A simple but powerful library that abstracts LLM chat completions, providing chat history, tokens tracking and tools interfaces.",
+  "main": "dist/llaminate.min.js",
+  "types": "dist/llaminate.d.ts",
+  "scripts": {
+    "prebuild": "node scripts/update-build-version.js",
+    "build": "tsc && terser dist/llaminate.js -o dist/llaminate.min.js --source-map --comments 'some' && rm dist/llaminate.js dist/llaminate.js.map",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "LLM",
+    "AI",
+    "chat",
+    "completions",
+    "streaming",
+    "tools"
+  ],
+  "author": "Oliver Moran <oliver.moran@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "terser": "^5.46.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "uuid": "^13.0.0"
+  }
+}

@@ -1,0 +1,26 @@
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Node.js dependencies
+node_modules
+.npm
+
+# Build and output files
+dist
+*.tgz
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# IDE-specific files
+.vscode
+
+# Environment files
+.env
+
+# Temporary files
+*.tmp
+*.swp
