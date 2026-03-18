@@ -62,12 +62,12 @@ Llaminate keeps track of the message history, allowing you to maintain context a
 
 ```typescript
 // Prompt 1
-const response1 = await llaminate.complete("What is your name?");
-console.log(response1.message);
+const first = await llaminate.complete("What is your name?");
+console.log(first.message);
 
 // Prompt 2 (builds on the context of Prompt 1)
-const response2 = await llaminate.complete("How do you spell that?");
-console.log(response2.message);
+const second = await llaminate.complete("How do you spell that?");
+console.log(second.message);
 
 // Export the chat history (optionally, pass a number for the length to export)
 llaminate.export();
@@ -111,27 +111,29 @@ const tools = [
   {
     schema: {
       function: {
-        name: "calculate_square_root",
-        description: "Calculates the square root of a given number.",
+        name: "make_a_decision",
+        description: "Randomly selects one option from a list of choices.",
         parameters: {
-          type: "object",
-          properties: {
-            number: {
-              type: "number",
-              description: "The number to calculate the square root of."
-            }
-          },
-          required: ["number"]
+          options: { type: "array", items: { type: "string" }, description: "The list of options to choose from." }
         }
       }
     },
     handler: async (name, args) => {
-      return Math.sqrt(args.number);
+      const { options } = args;
+      const decision = options[Math.floor(Math.random() * options.length)];
+      return { decision };
     }
   }
 ];
 
-const completion = await llaminate.complete("Calculate the square root of -1.");
+const llaminate = new Llaminate({
+  endpoint: "https://api.example.com/chat/completions",
+  key: "your-api-key",
+  model: "llm-model-name",
+  tools: tools
+});
+
+const completion = await llaminate.complete("Should I keep working on this project or take the afternoon off?");
 console.log(completion.result);
 ```
 
