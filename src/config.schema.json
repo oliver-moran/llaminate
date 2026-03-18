@@ -1,0 +1,66 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "endpoint": { "type": "string" },
+        "key": { "type": "string" },
+        "model": { "type": "string" },
+        "schema": {
+            "type": "object",
+            "properties": {
+                "type": { "type": "string" },
+                "properties": { "type": "object" },
+                "required": { "type": "array", "items": { "type": "string" } }
+            },
+            "additionalProperties": true
+        },
+        "system": {
+            "type": "array",
+            "items": { "type": "string" }
+        },
+        "window": {
+            "type": "integer",
+            "minimum": 1
+        },
+        "tools": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "function": {
+                                "type": "object",
+                                "properties": {
+                                    "name": { "type": "string" },
+                                    "description": { "type": "string" },
+                                    "parameters": { "type": "object" },
+                                    "strict": { "type": "boolean" }
+                                },
+                                "required": ["name"]
+                            }
+                        },
+                        "required": ["function"]
+                    },
+                    "handler": { "not": { "type": "null" } }
+                },
+                "required": ["schema", "handler"]
+            }
+        },
+        "handler": { "not": { "type": "null" } },
+        "options": {
+            "type": "object",
+            "additionalProperties": true
+        },
+        "headers": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "fetch": { "not": { "type": "null" } }
+    },
+    "required": ["endpoint", "key", "model"],
+    "additionalProperties": false
+}

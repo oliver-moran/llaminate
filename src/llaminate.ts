@@ -5,7 +5,26 @@
  * LICENSE file at https://github.com/oliver-moran/llaminate
  */
 
+const os = require("os");
 import { v4 as UUIDv4 } from "uuid";
+import Ajv from "ajv";
+
+const ajv = new Ajv();
+const validate = {
+    config: ajv.compile(require("./config.schema.json"))
+};
+
+// Polyfill for environments that don't support structuredClone (like Node.js versions prior to 17 or some older browsers)
+const structuredClone = globalThis.structuredClone || ((obj) => JSON.parse(JSON.stringify(obj)));
+const noop = () => {};
+
+// Dynamically determine the Llaminate version and Node.js version
+const { version: LLAMINATE_VERSION } = require("./build-info.json");
+const NODE_TITLE = process.title || "Node.js";
+const NODE_VERSION = process.version;
+const OS_TYPE = os.type();
+const OS_ARCH = os.arch();
+const USER_AGENT = `Llaminate/${LLAMINATE_VERSION} (https://github.com/oliver-moran/llaminate; ${NODE_TITLE}/${NODE_VERSION}; ${OS_TYPE}/${OS_ARCH})`;
 
 interface Tool {
     schema: {
@@ -23,11 +42,13 @@ interface LlaminateConfig {
     endpoint: string;
     key: string;
     model?: string;
+    schema?: Record<string, any>;
     system?: string[];
     window?: number;
     tools?: Tool[];
     handler?: (name, args) => Promise<any>;
     options?: Record<string, any>;
+    headers?: Record<string, string>;
     fetch?: (endpoint: string, options: Record<string, any>) => Promise<Response>;
 }
 
@@ -47,7 +68,7 @@ interface Tokens {
 
 interface LlaminateResponse {
     message: string | any;
-    messages: Message[];
+    result: Message[];
     tokens: Tokens;
     uuid: string;
 }
@@ -56,7 +77,8 @@ interface LlaminateContext {
     messages: Message[];
     tools: Tool[];
     subtotal: Tokens;
-    recurse: (messages: Message[], tools: Tool[], subtotal: Tokens) => AsyncGenerator<LlaminateResponse> | Promise<LlaminateResponse>;
+    config: LlaminateConfig;
+    recurse: (messages: Message[], subtotal: Tokens) => AsyncGenerator<LlaminateResponse> | Promise<LlaminateResponse>;
 }
 
 /**
@@ -74,15 +96,16 @@ export class Llaminate {
         endpoint: null,
         key: null,
         model: null,
-        tools: null,
-        fetch: globalThis.fetch.bind(globalThis),
+        tools: [],
         system: [],
         window: 12,
-        handler: async (name, args) => { throw new Error(`No handler provided for tool ${name}`) },
+        headers: {},
         options: {
-            parallel_tool_calls: false,
+            parallel_tool_calls: true,
             response_format: { type: "text" }
-        } as Record<string, any>
+        },
+        handler: async (name, args) => { throw new Error(`No handler provided for tool ${name}`) },
+        fetch: globalThis.fetch.bind(globalThis),
     };
 
     /* CONSTRUCTOR */
@@ -92,47 +115,26 @@ export class Llaminate {
      * @param endpoint - The endpoint URL for the Llaminate service.
      * @param key - The API key for authenticating requests.
      * @param config - Optional configuration settings for the service.
+     * @throws Will throw an error if the provided configuration is invalid.
      */
     constructor(config: LlaminateConfig) {
-        if (!config.endpoint || typeof config.endpoint !== "string" || config.endpoint.trim() === "") throw new Error("config.endpoint is required.");
-        if (!config.key || typeof config.key !== "string" || config.key.trim() === "") throw new Error("config.key is required.");
-
-        if (config.window !== undefined && (typeof config.window !== "number" || config.window < 1)) {
-            throw new Error("config.window must be a positive integer.");
-        }
-
-        if (config.system !== undefined && !Array.isArray(config.system)) {
-            throw new Error("config.system must be an array of strings.");
-        }
-
-        if (config.model !== undefined && typeof config.model !== "string") {
-            throw new Error("config.model must be a string.");
-        }
-
-        if (config.handler !== undefined && typeof config.handler !== "function") {
-            throw new Error("config.handler must be a function.");
-        }
-
-        if (config.tools !== undefined && !Array.isArray(config.tools)) {
-            throw new Error("config.tools must be an array of tool definitions.");
-        }
-
-        if (config.options !== undefined && typeof config.options !== "object") {
-            throw new Error("config.options must be an object.");
-        }
+        validateConfig(config);
 
         this.config.endpoint = config.endpoint;
         this.config.key = config.key;
+        this.config.model = config.model;
+        this.config.schema = config.schema;
 
-        this.config.fetch = config.fetch || this.config.fetch;
+        this.config.tools = config.tools || this.config.tools;
         this.config.system = config.system || this.config.system;
         this.config.window = config.window || this.config.window;
-        this.config.handler = config.handler || this.config.handler;
-        this.config.tools = config.tools || this.config.tools;
+        this.config.headers = config.headers || this.config.headers;
         this.config.options = {
             ...config.options,
             model: config.model,
         };
+        this.config.handler = config.handler || this.config.handler;
+        this.config.fetch = config.fetch || this.config.fetch;
     }
 
     /* PUBLIC METHODS */
@@ -140,56 +142,60 @@ export class Llaminate {
     /**
      * Sends a prompt to the Llaminate service and retrieves a complete response.
      * @param prompt - The input prompt or messages to send to the service.
-     * @param tools - Optional tools to use during the interaction.
+     * @param config - Optional configuration settings this completion.
      * @returns A promise resolving to the response from the service.
+     * @throws Will throw an error if the prompt is not a string or an array of messages, if the response from the service is not successful, or if the response does not conform to the expected format.
      */
-    async complete(prompt: string | Message[], tools: Tool[] = this.config.tools || []): Promise<LlaminateResponse> {
-        const messages = this.prepareMessageWindow(prompt);        
-        return await _recurse.call(this, messages, tools);
+    async complete(prompt: string | Message[], config?: LlaminateConfig): Promise<LlaminateResponse> {
+        const _config = generateCompletionConfig.call(this, config, false);
+        const messages = prepareMessageWindow.call(this, prompt, _config);
+        return await _complete.call(this, messages);
 
-        async function _recurse(messages: Message[], tools: Tool[], subtotal: Tokens = { input: 0, output: 0, total: 0 }): Promise<LlaminateResponse> {
-            const response = await this.fetch(messages, { tools: this.getSchemaFromTools(tools), stream: false });
-            if (!response.ok) throw new Error(`HTTP status ${response.status} from ${this.config.endpoint}: ${await response.text()}`);
+        async function _complete(messages: Message[], subtotal: Tokens = { input: 0, output: 0, total: 0 }): Promise<LlaminateResponse> {
+            const response = await fetch(messages, _config);
+            if (!response.ok) throw new Error(`HTTP status ${response.status} from ${_config.endpoint}: ${await response.text()}`);
 
             const completion = await response.json();
 
-            const tokens = this.getUsageFromCompletion(completion);
+            const tokens = getUsageFromCompletion(completion);
             subtotal.input += tokens.input || 0;
             subtotal.output += tokens.output || 0;
             subtotal.total += tokens.total || 0;
 
-            const recursed = await this.handleTools(completion, { messages, tools, subtotal, recurse: _recurse });
+            const recursed = await handleTools.call(this, completion, { messages, subtotal, config: _config, recurse: _complete });
             if (recursed) return recursed;
             else {
-                const message = completion?.choices?.[0]?.message?.content || null;
+                const role = completion?.choices?.[0]?.message?.role || null;
+                const message = validateResponse(completion?.choices?.[0]?.message?.content || "", _config);
                 messages.push({
-                    role: "assistant",
+                    role: role,
                     content: message
                 });
-                const result = this.getLastAssistantMessages(messages);
-                this.addMessagesToHistory(result);
-                return this.generateOutputObject(message, result, subtotal);
+                const result = getLastAssistantMessages(messages);
+                this.history.push(...result);
+                return generateOutputObject(message, result, subtotal);
             }
         }
 	}
 
     /**
-     * Streams responses from the Llaminate service based on the provided prompt and tools.
+     * Streams responses from the Llaminate service based on the provided prompt and configuration.
      * @param prompt - The input prompt or messages to send to the service.
-     * @param tools - Optional tools to use during the interaction.
+     * @param config - Optional configuration settings for this streamed completion.
      * @returns An asynchronous generator yielding responses from the service.
+     * @throws Will throw an error if the prompt is not a string or an array of messages, if the response from the service is not successful, or if the response does not conform to the expected format.
      */
-    async *stream(prompt: string | Message[], tools: Tool[] = this.config.tools || []): AsyncGenerator<LlaminateResponse> {
-        const messages = this.prepareMessageWindow(prompt);
-        const recursed = await _recurse.call(this, messages, tools);
+    async *stream(prompt: string | Message[], config?: LlaminateConfig): AsyncGenerator<LlaminateResponse> {
+        const _config = generateCompletionConfig.call(this, config, true);
+        const messages = prepareMessageWindow.call(this, prompt, _config);
+        const recursed = await _stream.call(this, messages);
         for await (const result of recursed) yield result;
 
-        async function* _recurse(messages: Message[], tools: Tool[], subtotal: Tokens = { input: 0, output: 0, total: 0 }): AsyncGenerator<LlaminateResponse> {
-            const response = await this.fetch(messages, { tools: this.getSchemaFromTools(tools), stream: true });
+        async function* _stream(messages: Message[], subtotal: Tokens = { input: 0, output: 0, total: 0 }): AsyncGenerator<LlaminateResponse> {
+            const response = await fetch(messages, _config);
 
-            if (!response.body) {
-                throw new Error(`Readable stream not supported at ${this.config.endpoint}: ${await response.text()}`);
-            }
+            if (!response.ok) throw new Error(`HTTP status ${response.status} from ${_config.endpoint}: ${await response.text()}`);
+            if (!response.body) throw new Error(`Readable stream not supported at ${_config.endpoint}: ${await response.text()}`);
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
@@ -218,209 +224,334 @@ export class Llaminate {
                                 completion = data; // Update the completion object with the latest chunk
                                 const delta = completion.choices?.[0]?.delta?.content || "";
                                 message += delta; // Append the new content to the message
-                                const tokens = this.getUsageFromCompletion(completion);
+                                const tokens = getUsageFromCompletion(completion);
                                 subtotal.input += tokens.input || 0;
                                 subtotal.output += tokens.output || 0;
                                 subtotal.total += tokens.total || 0;
-                                yield this.generateOutputObject(message, null, null, uuid);
+                                yield generateOutputObject(message, null, null, uuid);
                             }
                         } catch (error) { /* meh */ } // Ignore JSON parsing errors for incomplete lines or non-JSON lines
                     }
                 }
             }
 
-            const recursed = await this.handleTools(completion, { messages, tools, subtotal, recurse: _recurse });
+            const recursed = await handleTools.call(this, completion, { messages, subtotal, config: _config, recurse: _stream });
             if (recursed) for await (const result of recursed) yield result;
             else {
+                const role = completion?.choices?.[0]?.message?.role || null;
+                message = validateResponse(message, _config);
                 messages.push({
-                    role: "assistant",
+                    role: role,
                     content: message
                 });
-                const result = this.getLastAssistantMessages(messages);
-                this.addMessagesToHistory(result);
-                yield this.generateOutputObject(message, result, subtotal, uuid);
+                const result = getLastAssistantMessages(messages);
+                this.history.push(...result);
+                yield generateOutputObject(message, result, subtotal, uuid);
             }
         }
 	}
 
     /**
-     * Clears the message history.
+     * This method resets the internal history of messages exchanged with the service, allowing for a fresh start for subsequent interactions.
+     * Note that this does not affect the configuration or any other settings of the Llaminate instance, only the message history.
+     * @returns void
      */
-    clear() {
+    clear():void {
         this.history = [];
     }
 
-    /* PRIVATE METHODS */
-
     /**
-     * Sends a fetch request to the Llaminate service.
-     * @param messages - The messages to include in the request.
-     * @param options - Additional options for the request.
-     * @returns A promise resolving to the fetch response.
+     * Retrieves a window of messages from the internal history based on the instance's configuration, allowing for review or debugging of recent interactions with the service.
+     * Note that the window of messages returned is determined by the `window` setting in the configuration, which specifies how many recent user messages to include along with any system messages.
+     * By default, this will include all messages in the history.
+     * @param window - The number of recent user messages to include along with any system messages.
+     * @returns An array of messages from the internal history.
+     * @throws Will throw an error if the provided window size is invalid (e.g., negative number).
      */
-    private async fetch(messages: Message[], options: Record<string, any> = {}): Promise<Response> {
-        const headers = {
-            "Authorization": `Bearer ${this.config.key}`,
-            "Content-Type": "application/json",
-            "Connection": "keep-alive", // Added to support streaming
-            "Accept": "application/json, text/event-stream", // Specify multiple types to handle both streaming and non-streaming responses
-        };
+    export(window: number = Infinity): Message[] {
+        if (window && (isNaN(window) || window < 1)) throw new Error("Window size must be an integer greater than 0.");
+        const config = { ...this.config, window } as LlaminateConfig;
+        const history = getWindowFromHistory(this.history, config);
+        return structuredClone(history);
+    }
 
-        const body: Record<string, any> = {
-            ...this.config.options,
-            ...options,
-            messages,
-        };
+}
 
-        return this.config.fetch(this.config.endpoint, {
-            method: "POST",
-            headers: headers,
-            body: JSON.stringify(body),
+/* PRIVATE METHODS */
+
+// These are defined as standalone functions rather than class methods so as to
+// be fully private and not accessible on the instance, while still allowing
+// them to be called with the instance context (i.e., using .call(this, ...))
+// to access and modify the instance's history when necessary.
+
+/**
+ * Generates a complete configuration object for a completion request by merging the instance's default configuration with any provided overrides, and setting the appropriate response format based on the presence of a schema.
+ * @param config - Optional configuration overrides for this completion request.
+ * @param stream - Whether to enable streaming for this completion request.
+ * @returns The complete configuration object for the completion request.
+ */
+function generateCompletionConfig(config?: LlaminateConfig, stream: boolean = false): LlaminateConfig {
+    const _config = {
+        ...this.config,
+        ...config,
+        options: {
+            ...this.config?.options,
+            ...config?.options,
+            tools: (config?.tools || this.config?.tools || []).map(tool => tool.schema ),
+            stream: stream
+        } as Record<string, any>
+    };
+
+    // Some models (e.g. Mistral) don't support structured output with tools,
+    // so if both a schema and tools are provided we fall back to a text
+    // response and include instructions in the system prompt to format the
+    // response as JSON adhering to the schema. If only a schema is provided
+    // without tools, we can use the structured response format with the JSON
+    // schema directly.
+
+    if (hasSchemaAndTools(_config)) {
+        _config.system.push(`Your response must be in JSON format adhering to the provided schema:\n\n${JSON.stringify(_config.schema, null, 2)}`);
+        _config.options.response_format = { type: "text" };
+    } else if (_config.schema) {
+        _config.options.response_format = { type: "json_schema", json_schema:  { name: `schema_${UUIDv4()}`, schema: _config.schema } };
+    }
+
+    validateConfig(_config);
+    return _config;
+}
+
+/**
+ * Validates the provided configuration for the Llaminate instance.
+ * @param config - The configuration object to validate.
+ * @throws Will throw an error if the configuration is invalid.
+ */
+function validateConfig(config: LlaminateConfig) {
+    if (!validate.config(config)) {
+        throw new Error(`Invalid configuration: ${ajv.errorsText(validate.config.errors)}`);
+    }
+}
+
+/**
+ * Sends a fetch request to the Llaminate service.
+ * @param messages - The messages to include in the request.
+ * @param options - Additional options for the request.
+ * @returns A promise resolving to the fetch response.
+ */
+async function fetch(messages: Message[], config: LlaminateConfig): Promise<Response> {
+    const headers = {
+        "Authorization": `Bearer ${config.key}`,
+        "X-Api-Key": `${config.key}`,
+        "x-goog-api-key": `${config.key}`,
+        "Content-Type": "application/json",
+        "Connection": "keep-alive", // Added to support streaming
+        "Accept": "application/json, text/event-stream", // Specify multiple types to handle both streaming and non-streaming responses
+        "User-Agent": USER_AGENT,
+        ...config.headers
+    };
+
+    const body: Record<string, any> = {
+        ...config.options,
+        messages,
+    };
+
+    return config.fetch(config.endpoint, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(body),
+    });
+}
+
+/**
+ * Handles tool calls based on the completion response.
+ * @param completion - The completion response containing tool calls.
+ * @param context - The context for handling the tools.
+ * @returns A promise resolving to the response after handling tools.
+ */
+async function handleTools(completion: any, context: LlaminateContext): Promise<LlaminateResponse> {
+    const calls = completion?.choices?.[0]?.message?.tool_calls || completion?.choices?.[0]?.delta?.tool_calls || [];
+    const role = completion?.choices?.[0]?.message?.role || completion?.choices?.[0]?.delta?.role || "assistant";
+
+    if (calls.length > 0) {
+        context.messages.push({
+            role: role,
+            tool_calls: calls.map(call => cleanse(call))
         });
-    }
 
-    /**
-     * Handles tool calls based on the completion response.
-     * @param completion - The completion response containing tool calls.
-     * @param context - The context for handling the tools.
-     * @returns A promise resolving to the response after handling tools.
-     */
-    private async handleTools(completion: any, context: LlaminateContext): Promise<LlaminateResponse> {
-        const calls = completion?.choices?.[0]?.message?.tool_calls || completion?.choices?.[0]?.delta?.tool_calls || [];
-
-        if (calls.length > 0) {
-            context.messages.push({
-                role: "assistant",
-                tool_calls: calls.map((call) => ({
-                    type: "function",
-                    function: {
-                        name: call.function.name,
-                        arguments: call.function.arguments
-                    },
-                    id: call.id
-                }))
-            });
-
-            for (const call of calls) {
-                const tool = context.tools.find((tool) => tool.schema.function.name === call.function.name);
-                if (tool) {
-                    const args = JSON.parse(call.function.arguments);
-                    try {
-                        const response = await (tool.handler || this.config.handler).call(globalThis, call.function.name, args);
-                        context.messages.push({
-                            role: "tool",
-                            name: tool.schema.function.name,
-                            content: JSON.stringify(response),
-                            tool_call_id: call.id
-                        });
-                    } catch (error) {
-                        context.messages.push({
-                            role: "tool",
-                            name: tool.schema.function.name,
-                            content: JSON.stringify({ error: error.message }),
-                            tool_call_id: call.id
-                        });
-                    }
-                } else {
-                    throw new Error(`Tool ${call.function.name} not found.`);
+        for (const call of calls) {
+            const tool = context.config.tools.find((tool) => tool.schema.function.name === call.function.name);
+            if (tool) {
+                const args = JSON.parse(call.function.arguments);
+                try {
+                    const response = await (tool.handler || context.config.handler || noop).call(globalThis, call.function.name, args);
+                    context.messages.push({
+                        role: "tool",
+                        name: tool.schema.function.name,
+                        content: serialize(response),
+                        tool_call_id: call.id,
+                    });
+                } catch (error) {
+                    context.messages.push({
+                        role: "tool",
+                        name: tool.schema.function.name,
+                        content: JSON.stringify({ error: error.message }),
+                        tool_call_id: call.id,
+                    });
                 }
-            };
-
-            return await context.recurse.call(this, context.messages, context.tools, context.subtotal);
-        }
-    }
-
-    /**
-     * Retrieves the schema definitions from the provided tools.
-     * @param tools - The tools to extract schemas from.
-     * @returns The extracted schema definitions.
-     */
-    private getSchemaFromTools(tools: Tool[]): Partial<Tool["schema"]>[] {
-        return tools.map(tool => tool.schema );
-    }
-
-    /**
-     * Extracts token usage details from a completion response.
-     * @param completion - The completion response.
-     * @returns The token usage details.
-     */
-    private getUsageFromCompletion(completion: any): Tokens {
-        const input = completion?.usage?.prompt_tokens || null;
-        const output = completion?.usage?.completion_tokens || null;
-        const total = completion?.usage?.total_tokens || null;
-        return { input, output, total };
-    }
-
-    /**
-     * Generates an output object based on the provided parameters.
-     * @param message - The message content.
-     * @param messages - The list of messages.
-     * @param tokens - The token usage details.
-     * @param uuid - Optional unique identifier for the response.
-     * @returns The generated response object.
-     */
-    private generateOutputObject(message: string | any, messages: Message[], tokens: Tokens, uuid: string = UUIDv4()): LlaminateResponse {
-        return {
-            message: message,
-            messages: messages,
-            tokens: tokens,
-            uuid: uuid,
+            } else {
+                throw new Error(`Tool ${call.function.name} not found.`);
+            }
         };
-    }
 
-    /**
-     * Prepares a window of messages from the given prompt, modifying the message history accordingly.
-     * @param prompt - The input prompt, either a string or an array of messages.
-     * @returns The prepared window of messages based on the history and configuration.
-     */
-    private prepareMessageWindow(prompt: string | Message[]): Message[] {
-        if (Array.isArray(prompt)) this.history = prompt; // Set history to the initial messages if an array is provided, otherwise it will be built up over time with addMessagesToHistory
-        else this.addMessagesToHistory([{ role: "user", content: prompt }] as Message[]);
-        const messages = this.getWindowFromHistory(this.history);
-        return messages;
+        return await context.recurse.call(this, context.messages, context.subtotal);
     }
+}
 
-    /**
-     * Adds new messages to the message history.
-     * @param messages - The messages to add.
-     * @returns The updated message history.
-     */
-    private addMessagesToHistory(messages: Message[]): Message[] {
-        this.history.push(...messages);
-        return this.history;
+/**
+ * Extracts token usage details from a completion response.
+ * @param completion - The completion response.
+ * @returns The token usage details.
+ */
+function getUsageFromCompletion(completion: any): Tokens {
+    const input = completion?.usage?.prompt_tokens || null;
+    const output = completion?.usage?.completion_tokens || null;
+    const total = completion?.usage?.total_tokens || null;
+    return { input, output, total };
+}
+
+/**
+ * Generates an output object based on the provided parameters.
+ * @param message - The message content.
+ * @param result - The list of messages.
+ * @param tokens - The token usage details.
+ * @param uuid - Optional unique identifier for the response.
+ * @returns The generated response object.
+ */
+function generateOutputObject(message: string | any, result: Message[], tokens: Tokens, uuid: string = UUIDv4()): LlaminateResponse {
+    return { message, result, tokens, uuid };
+}
+
+/**
+ * Prepares a window of messages from the given prompt, modifying the message history accordingly.
+ * NB: This function is designed to be called with the Llaminate instance as its context (i.e.,
+ * using .call(this, ...)) to access and modify the instance's history.
+ * @param prompt - The input prompt, either a string or an array of messages.
+ * @param config - The configuration containing system messages and window size.
+ * @returns The prepared window of messages based on the history and configuration.
+ * @throws Will throw an error if the prompt is not a string or an array of messages.
+ */
+function prepareMessageWindow(prompt: string | Message[], config: LlaminateConfig): Message[] {
+    if (Array.isArray(prompt)) this.history = prompt; // Set history to the initial messages if an array is provided
+    else if (typeof prompt === "string") this.history.push({ role: "user", content: prompt } as Message);
+    else throw new Error("Prompt must be a string or an array of messages.");
+
+    const messages = getWindowFromHistory(this.history, config);
+    return messages;
+}
+
+/**
+ * Retrieves a window of messages from the history based on the configuration.
+ * @param messages - The message history.
+ * @param config - The configuration containing system messages and window size.
+ * @returns The filtered list of messages within the window.
+ */
+function getWindowFromHistory(messages: Message[], config: LlaminateConfig): Message[] {
+    let count = 0;
+    return [
+        ...(config.system || []).map(content => ({ role: "system", content } as Message)),
+        ...messages.reverse().map(message => {
+            if (message.role === "system") return message; // Always include system messages
+            if (count < config.window) {
+                if (message.role === "user") count++;
+                return message;
+            }
+        }).filter(Boolean).reverse()
+    ];
+}
+
+/**
+ * Retrieves the last assistant messages from the message history.
+ * @param messages - The message history.
+ * @returns The filtered list of assistant messages.
+ */
+function getLastAssistantMessages(messages: Message[] = []): Message[] {
+    let stop = false;
+    return messages.reverse().map(message => {
+        if (message.role === "user") stop = true;
+        if (!stop) return message; // Pass through system messages until we find the first user message
+    }).filter(Boolean).reverse();
+}
+
+/**
+ * Recursively cleanses an object by removing properties with null values and applying the same process to nested objects.
+ * @param obj - The object to be cleansed.
+ * @returns The cleansed object.
+ */
+function cleanse(obj: Record<string, any>): Record<string, any> {
+    if (obj && obj.constructor !== Object) return Object.entries(obj).reduce((acc, [key, value]) => {
+        if (value === null) {
+            // Skip null properties
+            return acc;
+        } else if (typeof value === "object" && !Array.isArray(value) && value !== null) {
+            // Recursively cleanse nested objects
+            acc[key] = cleanse(value);
+        } else {
+            acc[key] = value;
+        }
+        return acc;
+    }, {} as Record<string, any>);
+    else return obj;
+}
+
+/**
+ * Validates the response message against the provided schema in the configuration, if applicable.
+ * If a schema is present, it attempts to parse the message as JSON and validate it against the schema.
+ * @param message - The response message to validate.
+ * @param config - The configuration containing the schema for validation.
+ * @returns The validated message, either as a JSON string or the original message if no schema is present.
+ * @throws Will throw an error if the message does not conform to the schema.
+ */
+function validateResponse(message:string, config: LlaminateConfig):any {
+    if (config.schema) {
+        const json:string = hasSchemaAndTools(config)
+            ? message.replace(/^```json\n/, "").replace(/^```\n/, "").replace(/\n```$/, "").trim()
+            : message;
+        const obj:any = JSON.parse(json);
+
+        const schema = ajv.compile(config.schema);
+        const valid:any = schema(obj);
+        if (!valid) throw(schema.errors);
+
+        return JSON.stringify(obj);
+    } else return message;
+}
+
+/**
+ * Checks if the configuration includes both a schema and tools.
+ * @param config - The configuration to check.
+ * @returns True if both a schema and tools are present, false otherwise.
+ */
+function hasSchemaAndTools(config: LlaminateConfig): boolean {
+    return !!(config.schema && config.tools && config.tools.length > 0);
+}
+
+/**
+ * Serializes an object to a JSON string, with error handling for non-serializable objects.
+ * @param obj - The object to serialize.
+ * @returns The JSON string representation of the object.
+ * @throws Will throw an error if the object cannot be serialized to JSON.
+ */
+function serialize(obj: any): string {
+    try {
+        return JSON.stringify(obj);
+    } catch (error) {
+        try {
+            // Handle non-serializable objects
+            if (obj && typeof obj.toString === "function") {
+                const str = obj.toString();
+                if (typeof str === "string") return JSON.stringify(str);
+            }
+        } catch (error) { /* meh */ }
+
+        throw error;
     }
-
-    /**
-     * Retrieves a window of messages from the history based on the configuration.
-     * @param messages - The message history.
-     * @param system - Optional system messages to include.
-     * @returns The filtered list of messages within the window.
-     */
-    private getWindowFromHistory(messages: Message[], system: string[] = this.config.system): Message[] {
-        let count = 0;
-        return [
-            ...system.map(content => ({ role: "system", content } as Message)),
-            ...messages.reverse().map(message => {
-                if (message.role === "system") return message; // Always include system messages
-                if (count < this.config.window) {
-                    if (message.role === "user") count++;
-                    return message;
-                }
-            }).filter(Boolean).reverse()
-        ];
-    }
-
-    /**
-     * Retrieves the last assistant messages from the message history.
-     * @param messages - The message history.
-     * @returns The filtered list of assistant messages.
-     */
-    private getLastAssistantMessages(messages: Message[] = []): Message[] {
-        let stop = false;
-        return messages.reverse().map(message => {
-            if (message.role === "user") stop = true;
-            if (!stop) return message; // Pass through system messages until we find the first user message
-        }).filter(Boolean).reverse();
-    }
-
 }

@@ -32,20 +32,32 @@ const llaminate = new Llaminate({
   model: "llm-model-name"
 });
 
-const response = await llaminate.complete("Hello, AI!");
-console.log(response.message); // Outputs the AI's response
+const completion = await llaminate.complete("Hello, AI!");
+console.log(completion.message); // Outputs the AI's response
 ```
 
 ### Example 2: Streaming responses
 ```typescript
-const response = await llaminate.stream("Stream this response.");
-for await (const chunk of response) {
+const stream = await llaminate.stream("Stream this response.");
+for await (const chunk of stream) {
   console.log(chunk.message); // Outputs updates to the response as they arrive
 }
 ```
 
-### Example 3: Keeping a chat history
+### Example 3: Chaining completion responses
+Llaminate also supports the Promise chaining pattern with `.then()` and `.catch()`. This approach is useful for handling asynchronous operations in a more functional style.
 
+```typescript
+llaminate.complete("Why was six afraid of seven?")
+  .then((result) => {
+    console.log(result.message);
+  })
+  .catch ((error) => {
+    console.error(error.message);
+  });
+```
+
+### Example 4: Keeping a chat history
 Llaminate keeps track of the message history, allowing you to maintain context across multiple interactions. You can clear the history as needed.
 
 ```typescript
@@ -57,12 +69,14 @@ console.log(response1.message);
 const response2 = await llaminate.complete("How do you spell that?");
 console.log(response2.message);
 
+// Export the chat history (optionally, pass a number for the length to export)
+llaminate.export();
+
 // Clear the message history
 llaminate.clear();
 ```
 
 ### Alternative: Managing the history yourself
-
 You can provide a message history to the `complete` method. This allows you to directly manage system, user and assistant messages:
 
 ```typescript
@@ -73,17 +87,16 @@ const messages = [
   { role: "user", content: "Lettuce." },
 ];
 
-const response = await llaminate.complete(messages);
-console.log(response.messages); // raw response messages from the LLM
+const completion = await llaminate.complete(messages);
+console.log(completion.result); // Raw response messages from the LLM
 ```
 
-### Example 4: Retrieving Token Usage
-
+### Example 5: Retrieving token usage
 Llaminate provides token usage details for each interaction, including input, output, and total tokens.
 
 ```typescript
-const response = await llaminate.complete("How much wood would a woodchuck chuck if a woodchuck could chuck wood?");
-console.log(`${response.message} (${response.tokens.total} tokens)`);
+const completion = await llaminate.complete("How much wood would a woodchuck chuck if a woodchuck could chuck wood?");
+console.log(`${completion.message} (${completion.tokens.total} tokens)`);
 ```
 
 ---
@@ -98,36 +111,139 @@ const tools = [
   {
     schema: {
       function: {
-        name: "make_a_decision",
-        description: "Randomly selects one option from a list of choices.",
+        name: "calculate_square_root",
+        description: "Calculates the square root of a given number.",
         parameters: {
-          options: { type: "array", items: { type: "string" } }
+          type: "object",
+          properties: {
+            number: {
+              type: "number",
+              description: "The number to calculate the square root of."
+            }
+          },
+          required: ["number"]
         }
       }
     },
     handler: async (name, args) => {
-      const { options } = args;
-      const decision = options[Math.floor(Math.random() * options.length)];
-      return { decision };
+      return Math.sqrt(args.number);
     }
   }
 ];
 
-const llaminate = new Llaminate({
-  endpoint: "https://api.example.com/chat/completions",
-  key: "your-api-key",
-  model: "llm-model-name",
-  tools: tools
-});
-
-const response = await llaminate.complete("Should I keep working on this project or take the afternoon off?");
-console.log(response.messages); // raw response showing tools calls and responses
+const completion = await llaminate.complete("Calculate the square root of -1.");
+console.log(completion.result);
 ```
 
-### Alternative: Passing tools with the `complete` method
+### Alternative: Passing tools as configuration alongside prompts
 ```typescript
-const response = await llaminate.complete("Should I read a book or watch a movie?", tools);
-console.log(response.messages);
+const completion = await llaminate.complete("Should I read a book or watch a movie?", { tools });
+console.log(completion.result);
+```
+
+---
+
+## Structured Output
+
+Llaminate allows you to define a schema for structured output, ensuring that the AI's responses adhere to a specific format. This is particularly useful when you need predictable and well-defined responses for further processing.
+
+### Example: Defining a schema
+```typescript
+const schema = {
+  type: "object",
+  properties: {
+      reply: {
+          type: "string",
+          description: "Your response to the user's query."
+      },
+      thoughts: {
+        type: "string",
+        description: "Your internal thoughts about the user's query."
+      }
+  },
+  required: ["reply"]
+};
+
+const completion = await llaminate.complete("Should I cycle my bike or take public transport?", { tools, schema });
+console.log(completion.result);
+```
+
+---
+
+## Error Handling
+
+Llaminate provides robust error handling to ensure that your application can gracefully handle issues during interactions with the AI model. Below are some common scenarios and how to handle them:
+
+### Example 1: Invalid configuration
+If the configuration provided to the `Llaminate` constructor is invalid, an error will be thrown. Ensure that the `endpoint`, `key` and `model` fields are correctly set and validate any additional configuration options.
+
+```typescript
+try {
+  const llaminate = new Llaminate({
+    endpoint: "https://api.example.com/chat/completions",
+    key: "your-api-key"
+    // no model provided
+  });
+} catch (error) {
+  console.error(error.message);
+}
+```
+
+### Example 2: Completion and streaming errors
+The `complete` and `stream` methods will throw an error if the API response is unsuccessful (e.g., invalid configuration or API response). Use `try-catch` blocks to handle these errors.
+
+```typescript
+const schema = { // invalid schema
+  foo: "bar"
+};
+
+try {
+  const completion = await llaminate.complete("Hello, AI!", { schema });
+  console.log(completion.message);
+} catch (error) {
+  console.error(error.message);
+}
+```
+
+#### Example 3: Errors in tools
+If an error thrown while executing a tool, Llaminate will capture this. The error messsage will be passed to the LLM in the tool response.
+
+```typescript
+const tools = [
+  {
+    schema: {
+      function: {
+        name: "convert_kelvin_to_celsius",
+        description: "Converts a temperature from Kelvin to Celsius.",
+        parameters: {
+          type: "object",
+          properties: {
+            kelvin: {
+              type: "number",
+              description: "The temperature in Kelvin to convert to Celsius."
+            }
+          },
+          required: ["kelvin"]
+        }
+      }
+    },
+    handler: async (name, args) => {
+      const { kelvin } = args;
+
+      // Check for invalid Kelvin values
+      if (kelvin < 0) {
+        throw new Error("Temperature in Kelvin cannot be negative.");
+      }
+
+      // Convert Kelvin to Celsius
+      const celsius = kelvin - 273.15;
+      return { celsius };
+    }
+  }
+];
+
+const completion = await llaminate.complete("Convert -5 Kelvin to Celsius.", { tools });
+console.log(completion.result);
 ```
 
 ---
@@ -139,9 +255,15 @@ The `Llaminate` constructor accepts a configuration object with the following op
 - **`endpoint`** (required): The endpoint URL for the AI service.
 - **`key`** (required): The API key for authenticating requests.
 - **`model`**: Specify the model to use (e.g., `"mistral-small-latest"`).
+- **`schema`**: A schema defining the format for JSON output.
 - **`system`**: An array of system messages to include in each interaction.
 - **`window`**: The number of messages to retain in the context window (default: `12`).
-- **`handler`**: A custom function to handle tool calls.
+- **`tools`**: An array of custom tools to extend functionality. Each tool includes:
+  - `schema`: A schema defining the tool and how to use it.
+  - `handler`: A function to process tool calls and recieve arguments.
+- **`handler`**: A custom function to handle tool calls globally.
+- **`fetch`** A custom fetch implementation for making HTTP requests.
+- **`headers`** Additional HTTP headers to include in requests.
 - **`options`**: Additional parameters to include in the LLM API call, such as:
   - `max_tokens`: The maximum number of tokens to use.
   - `response_format`: The response format (e.g., `{ type: "json_object" }`).
@@ -162,6 +284,14 @@ const llaminate = new Llaminate({
     max_tokens: 100,
   }
 });
+```
+
+### Alternative: Configuration can be over-ridden on each prompt
+```typescript
+const completion = await llaminate.complete("What's an easy recipe for French toast?", { [
+  system: ["You always talk like a villian from a 19th century murder-mystery."]
+] });
+console.log(completion.result);
 ```
 
 ---
