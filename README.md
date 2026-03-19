@@ -4,9 +4,10 @@ Llaminate is a simple but powerful library designed to abstract chat completions
 
 ## Features
 - **Chat Completions**: Streamline chat completions, including streaming.
-- **Usage Tracking**: Track token usage across completions and tool calls.
 - **Tool Integration**: Easily integrate tools to extend functionality.
 - **Structured Output**: Define schemas for structured JSON output.
+- **Images and Documents**: Attach images and documents to your messages.
+- **Usage Tracking**: Track token usage across completions and tool calls.
 - **Rate Limiter**: Ensure compliance with API rate limits.
 
 ---
