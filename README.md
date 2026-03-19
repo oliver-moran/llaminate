@@ -103,6 +103,29 @@ console.log(`${completion.message} (${completion.tokens.total} tokens)`);
 
 ---
 
+## Images and Documents
+
+With LLM's that support images and documents, you can included these as URL attachments to your completions. Note, however, that the `attachment` property cannot be passed to the constructor.
+
+### Example: Including files with completions
+```typescript
+const attachments = [{
+    type: Llaminate.IMAGE,
+    url: "https://www.example.com/files/image.jpg"
+}, {
+    type: Llaminate.DOCUMENT,
+    url: "https://www.example.com/files/document.pdf"
+}, {
+    type: Llaminate.IMAGE,
+    url: "data:image/jpeg;base64,..."
+}];
+
+const completion = await llaminate.complete("Describe the attached files as if seeing them in a dream.", { attachments });
+console.log(completion.message);
+```
+
+---
+
 ## Using Tools
 
 Llaminate allows you to integrate custom tools to extend its functionality. Tools can be used to handle specific tasks during interactions with the AI model.
@@ -254,8 +277,11 @@ The `Llaminate` constructor accepts a configuration object with the following op
 
 - **`endpoint`** (required): The endpoint URL for the AI service.
 - **`key`** (required): The API key for authenticating requests.
-- **`model`**: Specify the model to use (e.g., `"mistral-small-latest"`).
+- **`model`** (required): Specify the model to use (e.g., `"mistral-small-latest"`).
 - **`rpm`**: Throttle requests in requests per minute (i.e. rate limiter).
+- **`attachments`** An array of image and documents to include in a completion:
+  - `type`: Either `Llaminate.IMAGE` or `Llaminate.DOCUMENT`.
+  - `url`: An internet accessible URL or base64 encoded URI to the file.
 - **`schema`**: A schema defining the format for JSON output.
 - **`system`**: An array of system messages to include in each interaction.
 - **`window`**: The number of messages to retain in the context window (default: `12`).
@@ -288,6 +314,8 @@ const llaminate = new Llaminate({
 A one-time configuration can also passed alongside a prompt. Configuration properties set in this way override the main configuration for the duration of the commpletion.
 
 Two exceptions are that the `system` property is appended to main system prompts for that completion. The `rpm` property can only be set in the constructor.
+
+The `attachment` property can only be set in this way.
 
 ```typescript
 const completion = await llaminate.complete("What's an easy recipe for French toast?", { [

@@ -1,4 +1,4 @@
-const { llaminate, config, tools, schema } = require("./common/setup.js");
+const { Llaminate, llaminate, config, tools, schema } = require("./common/setup.js");
 
 const system = ["Reply in a traditional haiku format."];
 
@@ -25,8 +25,9 @@ const messages = [
 ];
 
 describe("History", () => {
-    // start by clearning the history
-    llaminate.clear();
+
+    beforeAll(() => { llaminate.clear(); });
+    afterAll(() => { llaminate.clear(); });
 
     test("given an initial state, the history is correct", async () => {
         const history = await llaminate.export();
@@ -81,4 +82,5 @@ describe("History", () => {
             content: llaminate.config.system[0]
         });
     });
+
 });

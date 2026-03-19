@@ -38,12 +38,18 @@ interface Tool {
     handler?: (id, args) => Promise<any>;
 }
 
+interface Attachment {
+    type: "image" | "document";
+    url: string;
+}
+
 interface LlaminateConfig {
     endpoint: string;
     key: string;
     model?: string;
     schema?: Record<string, any>;
     system?: string[];
+    attachments?: Attachment[];
     window?: number;
     tools?: Tool[];
 
@@ -90,6 +96,11 @@ interface LlaminateContext {
  */
 export class Llaminate {
 
+    /* PUBLIC STATIC PROPERTIES */
+
+    public static IMAGE = "image";
+    public static DOCUMENT = "document";
+
     /* PRIVATE PROPERTIES */
 
     // The history of messages exchanged with the service.
@@ -105,6 +116,7 @@ export class Llaminate {
         model: null,
         tools: [],
         system: [],
+        attachments: [],
         window: 12,
         headers: {},
         options: {
@@ -125,6 +137,9 @@ export class Llaminate {
      * @throws Will throw an error if the provided configuration is invalid.
      */
     constructor(config: LlaminateConfig) {
+        if (config && config.attachments)
+            throw new Error("Attachments cannot be set in the constructor.");
+
         validateConfig(config);
 
         this.config.endpoint = config.endpoint;
@@ -360,8 +375,6 @@ function generateCompletionConfig(config?: LlaminateConfig, stream: boolean = fa
  * @throws Will throw an error if the configuration is invalid.
  */
 function validateConfig(config: LlaminateConfig) {
-
-    
     if (!validate.config(config)) {
         throw new Error(`Invalid configuration: ${ajv.errorsText(validate.config.errors)}`);
     }
@@ -476,9 +489,34 @@ function generateOutputObject(message: string | any, result: Message[], tokens: 
  * @throws Will throw an error if the prompt is not a string or an array of messages.
  */
 function prepareMessageWindow(prompt: string | Message[], config: LlaminateConfig): Message[] {
-    if (Array.isArray(prompt)) return getWindowFromHistory(prompt, config); // Set history to the initial messages if an array is provided
-    else if (typeof prompt === "string") return getWindowFromHistory(this.history.concat({ role: "user", content: prompt } as Message), config);
+    let messages = [];
+    if (Array.isArray(prompt)) messages = getWindowFromHistory(prompt, config); // Set history to the initial messages if an array is provided
+    else if (typeof prompt === "string") messages = getWindowFromHistory(this.history.concat({ role: "user", content: prompt } as Message), config);
     else throw new Error("Prompt must be a string or an array of messages.");
+
+    // If attachments are provided in the config, append them to the content of the last message
+    if (config.attachments && config.attachments.length > 0) {
+        messages[messages.length - 1].content = [
+            { type: "text", text: messages[messages.length - 1].content },
+            ...config.attachments.map((attachment) => {
+                if (attachment.type === Llaminate.IMAGE) {
+                    return {
+                        type: "image_url",
+                        image_url: attachment.url
+                    };
+                } else if (attachment.type === Llaminate.DOCUMENT) {
+                    return {
+                        type: "document_url",
+                        document_url: attachment.url
+                    };
+                } else {
+                    throw new Error(`Unsupported attachment type: ${attachment.type}`);
+                }
+            })
+        ]
+    }
+
+    return messages;
 }
 
 /**

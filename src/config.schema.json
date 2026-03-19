@@ -18,6 +18,17 @@
             "type": "array",
             "items": { "type": "string" }
         },
+        "attachments": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": { "type": "string", "enum": ["image", "document"] },
+                    "url": { "type": "string" }
+                },
+                "required": ["type", "url"]
+            }
+        },
         "window": {
             "type": "integer",
             "minimum": 1

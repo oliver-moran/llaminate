@@ -1,7 +1,10 @@
-const { llaminate, config, tools, schema } = require("./common/setup.js");
+const { Llaminate, llaminate, config, tools, schema } = require("./common/setup.js");
 const { matchReply, matchToolReply, matchSchemaReply } = require("./common/matches.js");
 
 describe("Streaming", () => {
+    beforeAll(() => { llaminate.clear(); });
+    afterAll(() => { llaminate.clear(); });
+
     test("given a question, replies with a stream", async () => {
         const stream = await llaminate.stream("What's the capital of France?");
 
@@ -30,7 +33,7 @@ describe("Streaming", () => {
         }
     });
 
-    test("given a tool and a relevant question, replies with a stream and use the tool", async () => {
+    test("given a tool and a relevant question, replies with a stream and uses the tool", async () => {
         const stream = await llaminate.stream("What time is it?", { tools });
 
         const chunks = [];

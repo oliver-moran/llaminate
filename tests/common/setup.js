@@ -1,11 +1,11 @@
 require('../extensions/toMatchSchema.js');
 
-const Llaminate = require("../../dist/Llaminate.min.js").Llaminate;
+const Llaminate = require("../../dist/llaminate.min.js").Llaminate;
 
 const config = {
-    endpoint: process.env.LLM_ENDPOINT,
-    key: process.env.LLM_API_KEY,
-    model: process.env.LLM_MODEL,
+    endpoint: process.env.TEST_ENDPOINT,
+    key: process.env.TEST_API_KEY,
+    model: process.env.TEST_MODEL,
     system: ["You are a sarcastic assistant who answers very briefly and bluntly."],
 };
 
@@ -41,6 +41,6 @@ const schema = {
   required: ["reply", "thoughts"]
 };
 
-const llaminate = new Llaminate({ ...config, tools, rpm: 60 });
+const llaminate = new Llaminate({ ...config, tools, rpm: Number(process.env.TEST_RPM) });
 
-module.exports = { llaminate, config, tools, schema };
+module.exports = { Llaminate, llaminate, config, tools, schema };
