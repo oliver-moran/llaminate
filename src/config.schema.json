@@ -27,28 +27,22 @@
             "items": {
                 "type": "object",
                 "properties": {
-                    "schema": {
+                    "function": {
                         "type": "object",
                         "properties": {
-                            "function": {
-                                "type": "object",
-                                "properties": {
-                                    "name": { "type": "string" },
-                                    "description": { "type": "string" },
-                                    "parameters": { "type": "object" },
-                                    "strict": { "type": "boolean" }
-                                },
-                                "required": ["name"]
-                            }
+                            "name": { "type": "string" },
+                            "description": { "type": "string" },
+                            "parameters": { "type": "object" },
+                            "strict": { "type": "boolean" }
                         },
-                        "required": ["function"]
+                        "required": ["name"]
                     },
-                    "handler": { "not": { "type": "null" } }
+                    "execute": { "not": { "type": "null" } }
                 },
-                "required": ["schema", "handler"]
+                "required": ["function"]
             }
         },
-        "handler": { "not": { "type": "null" } },
+        "execute": { "not": { "type": "null" } },
         "options": {
             "type": "object",
             "additionalProperties": true

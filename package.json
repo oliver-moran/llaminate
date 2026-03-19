@@ -7,7 +7,9 @@
   "scripts": {
     "prebuild": "node scripts/prebuild.js",
     "build": "tsc && terser dist/llaminate.js -o dist/llaminate.min.js --source-map --comments 'some' && rm dist/llaminate.js dist/llaminate.js.map",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "test": "jest --setupFiles @dotenvx/dotenvx/config",
+    "scratch": "node --env-file=.env ./tests/scratch.js"
   },
   "keywords": [
     "LLM",
@@ -20,12 +22,13 @@
   "author": "Oliver Moran <oliver.moran@gmail.com>",
   "license": "MIT",
   "devDependencies": {
+    "@dotenvx/dotenvx": "^1.55.1",
     "@types/node": "^25.5.0",
+    "jest": "^30.3.0",
     "terser": "^5.46.0",
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "ajv": "^8.18.0",
-    "uuid": "^13.0.0"
+    "ajv": "^8.18.0"
   }
 }

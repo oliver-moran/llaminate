@@ -109,16 +109,14 @@ Llaminate allows you to integrate custom tools to extend its functionality. Tool
 ```typescript
 const tools = [
   {
-    schema: {
-      function: {
-        name: "make_a_decision",
-        description: "Randomly selects one option from a list of choices.",
-        parameters: {
-          options: { type: "array", items: { type: "string" }, description: "The list of options to choose from." }
-        }
+    function: {
+      name: "make_a_decision",
+      description: "Randomly selects one option from a list of choices.",
+      parameters: {
+        options: { type: "array", items: { type: "string" }, description: "The list of options to choose from." }
       }
     },
-    handler: async (name, args) => {
+    execute: async (name, args) => {
       const { options } = args;
       const decision = options[Math.floor(Math.random() * options.length)];
       return { decision };
@@ -163,7 +161,7 @@ const schema = {
         description: "Your internal thoughts about the user's query."
       }
   },
-  required: ["reply"]
+  required: ["reply", "thoughts"]
 };
 
 const completion = await llaminate.complete("Should I cycle my bike or take public transport?", { tools, schema });
@@ -207,29 +205,27 @@ try {
 }
 ```
 
-#### Example 3: Errors in tools
+### Example 3: Errors in tools
 If an error thrown while executing a tool, Llaminate will capture this. The error messsage will be passed to the LLM in the tool response.
 
 ```typescript
 const tools = [
   {
-    schema: {
-      function: {
-        name: "convert_kelvin_to_celsius",
-        description: "Converts a temperature from Kelvin to Celsius.",
-        parameters: {
-          type: "object",
-          properties: {
-            kelvin: {
-              type: "number",
-              description: "The temperature in Kelvin to convert to Celsius."
-            }
-          },
-          required: ["kelvin"]
-        }
+    function: {
+      name: "convert_kelvin_to_celsius",
+      description: "Converts a temperature from Kelvin to Celsius.",
+      parameters: {
+        type: "object",
+        properties: {
+          kelvin: {
+            type: "number",
+            description: "The temperature in Kelvin to convert to Celsius."
+          }
+        },
+        required: ["kelvin"]
       }
     },
-    handler: async (name, args) => {
+    execute: async (name, args) => {
       const { kelvin } = args;
 
       // Check for invalid Kelvin values
@@ -261,9 +257,9 @@ The `Llaminate` constructor accepts a configuration object with the following op
 - **`system`**: An array of system messages to include in each interaction.
 - **`window`**: The number of messages to retain in the context window (default: `12`).
 - **`tools`**: An array of custom tools to extend functionality. Each tool includes:
-  - `schema`: A schema defining the tool and how to use it.
-  - `handler`: A function to process tool calls and recieve arguments.
-- **`handler`**: A custom function to handle tool calls globally.
+  - `function`: A schema defining the tool and how to use it.
+  - `execute`: A function to execute tool calls and recieve arguments.
+- **`execute`**: A global fallback function to execute tool calls.
 - **`fetch`** A custom fetch implementation for making HTTP requests.
 - **`headers`** Additional HTTP headers to include in requests.
 - **`options`**: Additional parameters to include in the LLM API call, such as:
@@ -278,10 +274,6 @@ const llaminate = new Llaminate({
   model: "gpt-4",
   system: ["You always talk like a cowboy from an old-fashioned Western."],
   window: 20,
-  handler: async (name, args) => {
-    console.log(`Tool called: ${name}`);
-    return { success: true };
-  },
   options: {
     max_tokens: 100,
   }
@@ -289,6 +281,8 @@ const llaminate = new Llaminate({
 ```
 
 ### Alternative: Configuration can be over-ridden on each prompt
+A one-time configuration can also passed alongside a prompt. Configuration properties set in this way override the main configuration for the duration of the commpletion. An exception is the `system` property, which is appended to main system prompts for that completion.
+
 ```typescript
 const completion = await llaminate.complete("What's an easy recipe for French toast?", { [
   system: ["You always talk like a villian from a 19th century murder-mystery."]

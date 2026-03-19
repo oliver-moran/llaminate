@@ -6,7 +6,6 @@
  */
 
 const os = require("os");
-import { v4 as UUIDv4 } from "uuid";
 import Ajv from "ajv";
 
 const ajv = new Ajv();
@@ -27,15 +26,13 @@ const OS_ARCH = os.arch();
 const USER_AGENT = `Llaminate/${LLAMINATE_VERSION} (https://github.com/oliver-moran/llaminate; ${NODE_TITLE}/${NODE_VERSION}; ${OS_TYPE}/${OS_ARCH})`;
 
 interface Tool {
-    schema: {
-        function: {
-            name: string;
-            description?: string;
-            parameters: Record<string, any>;
-            strict?: boolean;
-        }
+    function: {
+        name: string;
+        description?: string;
+        parameters: Record<string, any>;
+        strict?: boolean;
     };
-    handler?: (id, args) => Promise<any>;
+    execute?: (id, args) => Promise<any>;
 }
 
 interface LlaminateConfig {
@@ -46,7 +43,7 @@ interface LlaminateConfig {
     system?: string[];
     window?: number;
     tools?: Tool[];
-    handler?: (name, args) => Promise<any>;
+    execute?: (name, args) => Promise<any>;
     options?: Record<string, any>;
     headers?: Record<string, string>;
     fetch?: (endpoint: string, options: Record<string, any>) => Promise<Response>;
@@ -75,6 +72,7 @@ interface LlaminateResponse {
 
 interface LlaminateContext {
     messages: Message[];
+    result: Message[];
     tools: Tool[];
     subtotal: Tokens;
     config: LlaminateConfig;
@@ -104,7 +102,7 @@ export class Llaminate {
             parallel_tool_calls: true,
             response_format: { type: "text" }
         },
-        handler: async (name, args) => { throw new Error(`No handler provided for tool ${name}`) },
+        execute: async (name, args) => { throw new Error(`No \`execute\` method provided for tool ${name}`) },
         fetch: globalThis.fetch.bind(globalThis),
     };
 
@@ -130,11 +128,14 @@ export class Llaminate {
         this.config.window = config.window || this.config.window;
         this.config.headers = config.headers || this.config.headers;
         this.config.options = {
+            ...this.config.options,
             ...config.options,
             model: config.model,
         };
-        this.config.handler = config.handler || this.config.handler;
+        this.config.execute = config.execute || this.config.execute;
         this.config.fetch = config.fetch || this.config.fetch;
+
+        deepFreeze(this.config);
     }
 
     /* PUBLIC METHODS */
@@ -149,10 +150,13 @@ export class Llaminate {
     async complete(prompt: string | Message[], config?: LlaminateConfig): Promise<LlaminateResponse> {
         const _config = generateCompletionConfig.call(this, config, false);
         const messages = prepareMessageWindow.call(this, prompt, _config);
+        const result: Message[] = [];
+        const subtotal: Tokens = { input: 0, output: 0, total: 0 };
+
         return await _complete.call(this, messages);
 
-        async function _complete(messages: Message[], subtotal: Tokens = { input: 0, output: 0, total: 0 }): Promise<LlaminateResponse> {
-            const response = await fetch(messages, _config);
+        async function _complete(): Promise<LlaminateResponse> {
+            const response = await fetch([...messages, ...result], _config);
             if (!response.ok) throw new Error(`HTTP status ${response.status} from ${_config.endpoint}: ${await response.text()}`);
 
             const completion = await response.json();
@@ -162,17 +166,16 @@ export class Llaminate {
             subtotal.output += tokens.output || 0;
             subtotal.total += tokens.total || 0;
 
-            const recursed = await handleTools.call(this, completion, { messages, subtotal, config: _config, recurse: _complete });
+            const recursed = await handleTools.call(this, completion, { messages, result, subtotal, config: _config, recurse: _complete });
             if (recursed) return recursed;
             else {
-                const role = completion?.choices?.[0]?.message?.role || null;
+                const role = completion?.choices?.[0]?.message?.role || "assistant";
                 const message = validateResponse(completion?.choices?.[0]?.message?.content || "", _config);
-                messages.push({
+                result.push({
                     role: role,
                     content: message
                 });
-                const result = getLastAssistantMessages(messages);
-                this.history.push(...result);
+                updateHistory.call(this, prompt, result);
                 return generateOutputObject(message, result, subtotal);
             }
         }
@@ -188,11 +191,14 @@ export class Llaminate {
     async *stream(prompt: string | Message[], config?: LlaminateConfig): AsyncGenerator<LlaminateResponse> {
         const _config = generateCompletionConfig.call(this, config, true);
         const messages = prepareMessageWindow.call(this, prompt, _config);
-        const recursed = await _stream.call(this, messages);
-        for await (const result of recursed) yield result;
+        const result: Message[] = [];
+        const subtotal: Tokens = { input: 0, output: 0, total: 0 };
 
-        async function* _stream(messages: Message[], subtotal: Tokens = { input: 0, output: 0, total: 0 }): AsyncGenerator<LlaminateResponse> {
-            const response = await fetch(messages, _config);
+        const stream = await _stream.call(this, messages);
+        for await (const result of stream) yield result;
+
+        async function* _stream(): AsyncGenerator<LlaminateResponse> {
+            const response = await fetch([...messages, ...result], _config);
 
             if (!response.ok) throw new Error(`HTTP status ${response.status} from ${_config.endpoint}: ${await response.text()}`);
             if (!response.body) throw new Error(`Readable stream not supported at ${_config.endpoint}: ${await response.text()}`);
@@ -203,7 +209,7 @@ export class Llaminate {
             let buffer = "";
             let message = "";
             let completion = null;
-            const uuid = UUIDv4();
+            const uuid = uuid_v4();
 
             while (true) {
                 const { value, done } = await reader.read();
@@ -235,17 +241,16 @@ export class Llaminate {
                 }
             }
 
-            const recursed = await handleTools.call(this, completion, { messages, subtotal, config: _config, recurse: _stream });
+            const recursed = await handleTools.call(this, completion, { messages, result, subtotal, config: _config, recurse: _stream });
             if (recursed) for await (const result of recursed) yield result;
             else {
-                const role = completion?.choices?.[0]?.message?.role || null;
+                const role = completion?.choices?.[0]?.delta?.role || "assistant";
                 message = validateResponse(message, _config);
-                messages.push({
+                result.push({
                     role: role,
                     content: message
                 });
-                const result = getLastAssistantMessages(messages);
-                this.history.push(...result);
+                updateHistory.call(this, prompt, result);
                 yield generateOutputObject(message, result, subtotal, uuid);
             }
         }
@@ -285,7 +290,9 @@ export class Llaminate {
 // to access and modify the instance's history when necessary.
 
 /**
- * Generates a complete configuration object for a completion request by merging the instance's default configuration with any provided overrides, and setting the appropriate response format based on the presence of a schema.
+ * Generates a complete configuration object for a completion request by
+ * merging the instance's default configuration with any provided overrides,
+ * and setting the appropriate response format based on the presence of a schema.
  * @param config - Optional configuration overrides for this completion request.
  * @param stream - Whether to enable streaming for this completion request.
  * @returns The complete configuration object for the completion request.
@@ -294,13 +301,17 @@ function generateCompletionConfig(config?: LlaminateConfig, stream: boolean = fa
     const _config = {
         ...this.config,
         ...config,
+        // Combine system messages from instance config and provided config
+        system: this.config.system.concat(config?.system || []),
         options: {
             ...this.config?.options,
             ...config?.options,
-            tools: (config?.tools || this.config?.tools || []).map(tool => tool.schema ),
+            tools: (config?.tools || this.config?.tools || []).map(tool => ({ type: "function", function: tool.function }) ),
             stream: stream
         } as Record<string, any>
     };
+
+    validateConfig(_config);
 
     // Some models (e.g. Mistral) don't support structured output with tools,
     // so if both a schema and tools are provided we fall back to a text
@@ -313,10 +324,9 @@ function generateCompletionConfig(config?: LlaminateConfig, stream: boolean = fa
         _config.system.push(`Your response must be in JSON format adhering to the provided schema:\n\n${JSON.stringify(_config.schema, null, 2)}`);
         _config.options.response_format = { type: "text" };
     } else if (_config.schema) {
-        _config.options.response_format = { type: "json_schema", json_schema:  { name: `schema_${UUIDv4()}`, schema: _config.schema } };
+        _config.options.response_format = { type: "json_schema", json_schema:  { name: `schema_${uuid_v4()}`, schema: _config.schema } };
     }
 
-    validateConfig(_config);
     return _config;
 }
 
@@ -326,6 +336,8 @@ function generateCompletionConfig(config?: LlaminateConfig, stream: boolean = fa
  * @throws Will throw an error if the configuration is invalid.
  */
 function validateConfig(config: LlaminateConfig) {
+
+    
     if (!validate.config(config)) {
         throw new Error(`Invalid configuration: ${ajv.errorsText(validate.config.errors)}`);
     }
@@ -372,27 +384,27 @@ async function handleTools(completion: any, context: LlaminateContext): Promise<
     const role = completion?.choices?.[0]?.message?.role || completion?.choices?.[0]?.delta?.role || "assistant";
 
     if (calls.length > 0) {
-        context.messages.push({
+        context.result.push({
             role: role,
             tool_calls: calls.map(call => cleanse(call))
         });
 
         for (const call of calls) {
-            const tool = context.config.tools.find((tool) => tool.schema.function.name === call.function.name);
+            const tool = context.config.tools.find((tool) => tool.function.name === call.function.name);
             if (tool) {
                 const args = JSON.parse(call.function.arguments);
                 try {
-                    const response = await (tool.handler || context.config.handler || noop).call(globalThis, call.function.name, args);
-                    context.messages.push({
+                    const response = await (tool.execute || context.config.execute || noop).call(globalThis, call.function.name, args);
+                    context.result.push({
                         role: "tool",
-                        name: tool.schema.function.name,
+                        name: tool.function.name,
                         content: serialize(response),
                         tool_call_id: call.id,
                     });
                 } catch (error) {
-                    context.messages.push({
+                    context.result.push({
                         role: "tool",
-                        name: tool.schema.function.name,
+                        name: tool.function.name,
                         content: JSON.stringify({ error: error.message }),
                         tool_call_id: call.id,
                     });
@@ -402,7 +414,7 @@ async function handleTools(completion: any, context: LlaminateContext): Promise<
             }
         };
 
-        return await context.recurse.call(this, context.messages, context.subtotal);
+        return await context.recurse.call(this);
     }
 }
 
@@ -426,7 +438,7 @@ function getUsageFromCompletion(completion: any): Tokens {
  * @param uuid - Optional unique identifier for the response.
  * @returns The generated response object.
  */
-function generateOutputObject(message: string | any, result: Message[], tokens: Tokens, uuid: string = UUIDv4()): LlaminateResponse {
+function generateOutputObject(message: string | any, result: Message[], tokens: Tokens, uuid: string = uuid_v4()): LlaminateResponse {
     return { message, result, tokens, uuid };
 }
 
@@ -440,12 +452,9 @@ function generateOutputObject(message: string | any, result: Message[], tokens: 
  * @throws Will throw an error if the prompt is not a string or an array of messages.
  */
 function prepareMessageWindow(prompt: string | Message[], config: LlaminateConfig): Message[] {
-    if (Array.isArray(prompt)) this.history = prompt; // Set history to the initial messages if an array is provided
-    else if (typeof prompt === "string") this.history.push({ role: "user", content: prompt } as Message);
+    if (Array.isArray(prompt)) return getWindowFromHistory(prompt, config); // Set history to the initial messages if an array is provided
+    else if (typeof prompt === "string") return getWindowFromHistory(this.history.concat({ role: "user", content: prompt } as Message), config);
     else throw new Error("Prompt must be a string or an array of messages.");
-
-    const messages = getWindowFromHistory(this.history, config);
-    return messages;
 }
 
 /**
@@ -458,27 +467,27 @@ function getWindowFromHistory(messages: Message[], config: LlaminateConfig): Mes
     let count = 0;
     return [
         ...(config.system || []).map(content => ({ role: "system", content } as Message)),
-        ...messages.reverse().map(message => {
+        ...(messages.concat().reverse().map(message => {
             if (message.role === "system") return message; // Always include system messages
             if (count < config.window) {
                 if (message.role === "user") count++;
                 return message;
             }
-        }).filter(Boolean).reverse()
+        }).filter(Boolean).reverse())
     ];
 }
 
 /**
- * Retrieves the last assistant messages from the message history.
- * @param messages - The message history.
- * @returns The filtered list of assistant messages.
+ * Updates the instance's history with the new messages based on the prompt and result.
+ * This function is designed to be called with the Llaminate instance as its context (i.e.,
+ * using .call(this, ...)) to access and modify the instance's history.
+ * @param prompt - The original prompt, either a string or an array of messages.
+ * @param result - The new messages to add to the history based on the prompt.
+ * @returns void
  */
-function getLastAssistantMessages(messages: Message[] = []): Message[] {
-    let stop = false;
-    return messages.reverse().map(message => {
-        if (message.role === "user") stop = true;
-        if (!stop) return message; // Pass through system messages until we find the first user message
-    }).filter(Boolean).reverse();
+function updateHistory(prompt: string | Message[], result: Message[]): void {
+    if (Array.isArray(prompt)) this.history = prompt.concat(result);
+    else if (typeof prompt === "string") this.history.push({ role: "user", content: prompt } as Message, ...result);
 }
 
 /**
@@ -508,7 +517,7 @@ function cleanse(obj: Record<string, any>): Record<string, any> {
  * @param message - The response message to validate.
  * @param config - The configuration containing the schema for validation.
  * @returns The validated message, either as a JSON string or the original message if no schema is present.
- * @throws Will throw an error if the message does not conform to the schema.
+ * @throws Will throw an error if the message does not conform to the schema or if the message is empty when no schema is provided.
  */
 function validateResponse(message:string, config: LlaminateConfig):any {
     if (config.schema) {
@@ -522,7 +531,8 @@ function validateResponse(message:string, config: LlaminateConfig):any {
         if (!valid) throw(schema.errors);
 
         return JSON.stringify(obj);
-    } else return message;
+    } else if (message) return message;
+    else throw new Error("Response message is empty.");
 }
 
 /**
@@ -554,4 +564,34 @@ function serialize(obj: any): string {
 
         throw error;
     }
+}
+
+/**
+ * Generates a UUIDv4 string.
+ * @returns A UUIDv4 string.
+ */
+function uuid_v4(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
+/**
+ * Deeply freezes an object, making it immutable by recursively freezing all nested objects and arrays.
+ * @param obj - The object to be deeply frozen.
+ * @returns The deeply frozen object.
+ */
+function deepFreeze(obj: any): any {
+    if (typeof obj !== "object") {
+        throw new Error("Only Objects can be frozen.");
+    }
+
+    const props = Object.getOwnPropertyNames(obj);
+    for (const name of props) {
+        const value = obj[name];
+        if (value && typeof value === "object") deepFreeze(value);
+    }
+
+    return Object.freeze(obj);
 }
