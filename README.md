@@ -3,9 +3,10 @@
 Llaminate is a simple but powerful library designed to abstract chat completions with AI models. It provides robust tools for managing prompts, message histories, token usage and integrating custom tools, making it ideal for quickly building applications that interact with large language models (LLMs).
 
 ## Features
-- **Completions**: Manage and streamline chat completions with AI models, including streaming.
-- **Usage Tracking**: Keep track of token usage for input, output and total tokens.
-- **Tool Integration**: Easily integrate custom tools to extend functionality.
+- **Chat Completions**: Streamline chat completions, including streaming.
+- **Usage Tracking**: Track token usage across completions and tool calls.
+- **Tool Integration**: Easily integrate tools to extend functionality.
+- **Structured Output**: Define schemas for structured JSON output.
 
 ---
 
