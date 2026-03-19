@@ -11,13 +11,16 @@ const files = ["config.schema.json"];
 
 // Ensure the dist directory exists
 
+console.log('Preparing the dist directory.');
+
 if (fs.existsSync(dist)) {
   fs.rmSync(dist, { recursive: true, force: true });
-  console.log('Cleared the dist directory.');
 }
 fs.mkdirSync(dist);
 
 // Generate build-info.json
+
+console.log("Generating build-info.json.");
 
 const build = {
   name: package.name,
@@ -30,13 +33,11 @@ fs.writeFileSync(
   JSON.stringify(build, null, 2)
 );
 
-console.log("Generated build-info.json:\n", build);
-
 // Copy config.schema.json to dist directory
 
 console.log("Copying files to dist directory:");
 
 files.forEach(file => {
   fs.copyFileSync(path.join(src, file), path.join(dist, file));
-  console.log(`  - ${file} copied successfully`);
+  console.log(`  - ${file}`);
 });
