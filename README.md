@@ -117,7 +117,7 @@ const tools = [
         options: { type: "array", items: { type: "string" }, description: "The list of options to choose from." }
       }
     },
-    execute: async (name, args) => {
+    handler: async (name, args) => {
       const { options } = args;
       const decision = options[Math.floor(Math.random() * options.length)];
       return { decision };
@@ -226,7 +226,7 @@ const tools = [
         required: ["kelvin"]
       }
     },
-    execute: async (name, args) => {
+    handler: async (name, args) => {
       const { kelvin } = args;
 
       // Check for invalid Kelvin values
@@ -259,8 +259,8 @@ The `Llaminate` constructor accepts a configuration object with the following op
 - **`window`**: The number of messages to retain in the context window (default: `12`).
 - **`tools`**: An array of custom tools to extend functionality. Each tool includes:
   - `function`: A schema defining the tool and how to use it.
-  - `execute`: A function to execute tool calls and recieve arguments.
-- **`execute`**: A global fallback function to execute tool calls.
+  - `handler`: A function to execute tool calls and recieve arguments.
+- **`handler`**: A global fallback function to execute tool calls.
 - **`fetch`** A custom fetch implementation for making HTTP requests.
 - **`headers`** Additional HTTP headers to include in requests.
 - **`options`**: Additional parameters to include in the LLM API call, such as:

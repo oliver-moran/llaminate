@@ -37,12 +37,12 @@
                         },
                         "required": ["name"]
                     },
-                    "execute": { "not": { "type": "null" } }
+                    "handler": { "not": { "type": "null" } }
                 },
                 "required": ["function"]
             }
         },
-        "execute": { "not": { "type": "null" } },
+        "handler": { "not": { "type": "null" } },
         "options": {
             "type": "object",
             "additionalProperties": true

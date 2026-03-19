@@ -32,7 +32,7 @@ interface Tool {
         parameters: Record<string, any>;
         strict?: boolean;
     };
-    execute?: (id, args) => Promise<any>;
+    handler?: (id, args) => Promise<any>;
 }
 
 interface LlaminateConfig {
@@ -43,7 +43,7 @@ interface LlaminateConfig {
     system?: string[];
     window?: number;
     tools?: Tool[];
-    execute?: (name, args) => Promise<any>;
+    handler?: (name, args) => Promise<any>;
     options?: Record<string, any>;
     headers?: Record<string, string>;
     fetch?: (endpoint: string, options: Record<string, any>) => Promise<Response>;
@@ -102,7 +102,7 @@ export class Llaminate {
             parallel_tool_calls: true,
             response_format: { type: "text" }
         },
-        execute: async (name, args) => { throw new Error(`No \`execute\` method provided for tool ${name}`) },
+        handler: async (name, args) => { throw new Error(`No \`handler\` method provided for tool ${name}`) },
         fetch: globalThis.fetch.bind(globalThis),
     };
 
@@ -132,7 +132,7 @@ export class Llaminate {
             ...config.options,
             model: config.model,
         };
-        this.config.execute = config.execute || this.config.execute;
+        this.config.handler = config.handler || this.config.handler;
         this.config.fetch = config.fetch || this.config.fetch;
 
         deepFreeze(this.config);
@@ -394,7 +394,7 @@ async function handleTools(completion: any, context: LlaminateContext): Promise<
             if (tool) {
                 const args = JSON.parse(call.function.arguments);
                 try {
-                    const response = await (tool.execute || context.config.execute || noop).call(globalThis, call.function.name, args);
+                    const response = await (tool.handler || context.config.handler || noop).call(globalThis, call.function.name, args);
                     context.result.push({
                         role: "tool",
                         name: tool.function.name,

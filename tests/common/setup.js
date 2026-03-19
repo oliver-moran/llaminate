@@ -20,7 +20,7 @@ const tools = [
         required: []
       }
     },
-    execute: async () => {
+    handler: async () => {
       return new Date().toISOString();
     }
   }
