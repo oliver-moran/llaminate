@@ -12,7 +12,6 @@
     "scratch": "node --env-file=.env ./tests/scratch.js"
   },
   "jest": {
-    "runTestsByPath": true,
     "silent": true,
     "setupFiles": ["@dotenvx/dotenvx/config"],
     "testTimeout": 3600000,
