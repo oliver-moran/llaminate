@@ -8,6 +8,8 @@
 const os = require("os");
 import Ajv from "ajv";
 
+import { RateLimiter } from "./ratelimiter";
+
 const ajv = new Ajv();
 const validate = {
     config: ajv.compile(require("./config.schema.json"))
@@ -43,9 +45,12 @@ interface LlaminateConfig {
     system?: string[];
     window?: number;
     tools?: Tool[];
-    handler?: (name, args) => Promise<any>;
-    options?: Record<string, any>;
+
     headers?: Record<string, string>;
+    options?: Record<string, any>;
+    rpm?: number;
+
+    handler?: (name, args) => Promise<any>;
     fetch?: (endpoint: string, options: Record<string, any>) => Promise<Response>;
 }
 
@@ -89,8 +94,11 @@ export class Llaminate {
     // The history of messages exchanged with the service.
     private history: Message[] = [];
 
+    // The rate limiter instance for managing API request rates.
+    private readonly limiter: RateLimiter;
+
     // The configuration options for the Llaminate service.
-    private config: LlaminateConfig = {
+    private readonly config: LlaminateConfig = {
         endpoint: null,
         key: null,
         model: null,
@@ -121,6 +129,7 @@ export class Llaminate {
         this.config.endpoint = config.endpoint;
         this.config.key = config.key;
         this.config.model = config.model;
+
         this.config.schema = config.schema;
 
         this.config.tools = config.tools || this.config.tools;
@@ -136,6 +145,8 @@ export class Llaminate {
         this.config.fetch = config.fetch || this.config.fetch;
 
         deepFreeze(this.config);
+
+        this.limiter = new RateLimiter(config.rpm);
     }
 
     /* PUBLIC METHODS */
@@ -156,7 +167,7 @@ export class Llaminate {
         return await _complete.call(this, messages);
 
         async function _complete(): Promise<LlaminateResponse> {
-            const response = await fetch([...messages, ...result], _config);
+            const response = await this.limiter.queue(() => fetch([...messages, ...result], _config) );
             if (!response.ok) throw new Error(`HTTP status ${response.status} from ${_config.endpoint}: ${await response.text()}`);
 
             const completion = await response.json();
@@ -198,7 +209,7 @@ export class Llaminate {
         for await (const result of stream) yield result;
 
         async function* _stream(): AsyncGenerator<LlaminateResponse> {
-            const response = await fetch([...messages, ...result], _config);
+            const response = await this.limiter.queue(() => fetch([...messages, ...result], _config) );
 
             if (!response.ok) throw new Error(`HTTP status ${response.status} from ${_config.endpoint}: ${await response.text()}`);
             if (!response.body) throw new Error(`Readable stream not supported at ${_config.endpoint}: ${await response.text()}`);
@@ -298,6 +309,10 @@ export class Llaminate {
  * @returns The complete configuration object for the completion request.
  */
 function generateCompletionConfig(config?: LlaminateConfig, stream: boolean = false): LlaminateConfig {
+    if (config && config.rpm) {
+        throw new Error("RPM cannot be set on a per-request basis. Please set the RPM in the constructor configuration.");
+    }
+
     const _config = {
         ...this.config,
         ...config,
@@ -306,10 +321,18 @@ function generateCompletionConfig(config?: LlaminateConfig, stream: boolean = fa
         options: {
             ...this.config?.options,
             ...config?.options,
-            tools: (config?.tools || this.config?.tools || []).map(tool => ({ type: "function", function: tool.function }) ),
             stream: stream
         } as Record<string, any>
     };
+
+    // If there are no tools, don't set these in the options (and delete all references)
+    const tools = config?.tools || this.config?.tools || [];
+    if (tools.length > 0) {
+        _config.options.tools = tools.map(tool => ({ type: "function", function: tool.function }) );
+    } else {
+        delete _config.options.tools;
+        delete _config.options.parallel_tool_calls;
+    }
 
     validateConfig(_config);
 

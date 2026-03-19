@@ -7,6 +7,7 @@ Llaminate is a simple but powerful library designed to abstract chat completions
 - **Usage Tracking**: Track token usage across completions and tool calls.
 - **Tool Integration**: Easily integrate tools to extend functionality.
 - **Structured Output**: Define schemas for structured JSON output.
+- **Rate Limiter**: Ensure compliance with API rate limits.
 
 ---
 
@@ -254,6 +255,7 @@ The `Llaminate` constructor accepts a configuration object with the following op
 - **`endpoint`** (required): The endpoint URL for the AI service.
 - **`key`** (required): The API key for authenticating requests.
 - **`model`**: Specify the model to use (e.g., `"mistral-small-latest"`).
+- **`rpm`**: Throttle requests in requests per minute (i.e. rate limiter).
 - **`schema`**: A schema defining the format for JSON output.
 - **`system`**: An array of system messages to include in each interaction.
 - **`window`**: The number of messages to retain in the context window (default: `12`).
@@ -275,6 +277,7 @@ const llaminate = new Llaminate({
   model: "gpt-4",
   system: ["You always talk like a cowboy from an old-fashioned Western."],
   window: 20,
+  rpm: 5,
   options: {
     max_tokens: 100,
   }
@@ -282,7 +285,9 @@ const llaminate = new Llaminate({
 ```
 
 ### Alternative: Configuration can be over-ridden on each prompt
-A one-time configuration can also passed alongside a prompt. Configuration properties set in this way override the main configuration for the duration of the commpletion. An exception is the `system` property, which is appended to main system prompts for that completion.
+A one-time configuration can also passed alongside a prompt. Configuration properties set in this way override the main configuration for the duration of the commpletion.
+
+Two exceptions are that the `system` property is appended to main system prompts for that completion. The `rpm` property can only be set in the constructor.
 
 ```typescript
 const completion = await llaminate.complete("What's an easy recipe for French toast?", { [

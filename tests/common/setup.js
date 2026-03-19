@@ -41,6 +41,6 @@ const schema = {
   required: ["reply", "thoughts"]
 };
 
-const llaminate = new Llaminate({ ...config, tools, fetch });
+const llaminate = new Llaminate({ ...config, tools, rpm: 60 });
 
 module.exports = { llaminate, config, tools, schema };

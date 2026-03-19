@@ -53,6 +53,10 @@
                 "type": "string"
             }
         },
+        "rpm": {
+            "type": "integer",
+            "minimum": 1
+        },
         "fetch": { "not": { "type": "null" } }
     },
     "required": ["endpoint", "key", "model"],
