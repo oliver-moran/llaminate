@@ -6,7 +6,7 @@
   "types": "dist/llaminate.d.ts",
   "scripts": {
     "prebuild": "node scripts/prebuild.js",
-    "build": "tsc && terser dist/llaminate.js -o dist/llaminate.min.js --source-map --comments 'some' && rm dist/llaminate.js dist/llaminate.js.map",
+    "build": "bash scripts/build.sh",
     "prepare": "npm run build",
     "test": "jest --i",
     "scratch": "node --env-file=.env ./tests/scratch.js"

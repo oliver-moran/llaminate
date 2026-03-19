@@ -8,7 +8,8 @@
 const os = require("os");
 import Ajv from "ajv";
 
-import { RateLimiter } from "./ratelimiter";
+// @ts-ignore - This will be replaced with a minified version in the build process
+import { RateLimiter } from "./ratelimiter.min.js";
 
 const ajv = new Ajv();
 const validate = {
