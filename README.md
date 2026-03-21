@@ -41,7 +41,7 @@ const llaminate = new Llaminate({
 });
 
 const completion = await llaminate.complete("Hello, AI!");
-console.log(completion.message); // Outputs the AI's response
+console.log(completion.message); // outputs the AI's response
 ```
 
 ### Alternative: Using defined endpoints
@@ -62,7 +62,7 @@ console.log(completion.message);
 ```typescript
 const stream = await llaminate.stream("Stream this response.");
 for await (const chunk of stream) {
-  console.log(chunk.message); // Outputs updates to the response as they arrive
+  console.log(chunk.message); // outputs updates to the response as they arrive
 }
 ```
 
