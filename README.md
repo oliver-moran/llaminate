@@ -4,6 +4,8 @@ Llaminate is a simple but powerful library designed to abstract chat completions
 
 It provides robust tools for managing prompts, message histories, token usage and integrating custom tools, making it ideal for quickly building applications that interact with large language models (LLMs).
 
+Llaminate is currently tested against Mistral, OpenAI and DeepSeek endpoints.
+
 ## Features
 
 - **Chat Completions**: Streamline chat completions, including streaming.
@@ -12,8 +14,6 @@ It provides robust tools for managing prompts, message histories, token usage an
 - **Images and Documents**: Attach images and documents to your messages.
 - **Usage Tracking**: Track token usage across completions and tool calls.
 - **Rate Limiter**: Ensure compliance with API rate limits.
-
-Llaminate is currently tested against Mistral, OpenAI and DeepSeek endpoints.
 
 ---
 
@@ -44,7 +44,7 @@ const completion = await llaminate.complete("Hello, AI!");
 console.log(completion.message); // Outputs the AI's response
 ```
 
-### Alternaive: Using defined endpoints
+### Alternative: Using defined endpoints
 Llaminate includes statically defined endpoints for tested services. Currently, these are `Llaminate.MISTRAL`, `Llaminate.OPENAI` and `Llaminate.DEEPSEEK`. You'll still need your API key and know the name of the model you want to use.
 
 ```typescript
