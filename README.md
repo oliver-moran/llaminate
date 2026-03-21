@@ -110,7 +110,7 @@ const messages = [
 ];
 
 const completion = await llaminate.complete(messages);
-console.log(completion.result); // Raw response messages from the LLM
+console.log(completion.result); // raw response messages from the LLM
 ```
 
 ### Example 5: Retrieving token usage
