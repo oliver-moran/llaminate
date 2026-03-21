@@ -1,14 +1,19 @@
 # Llaminate
 
-Llaminate is a simple but powerful library designed to abstract chat completions with AI models. It provides robust tools for managing prompts, message histories, token usage and integrating custom tools, making it ideal for quickly building applications that interact with large language models (LLMs).
+Llaminate is a simple but powerful library designed to abstract chat completions with AI models.
+
+It provides robust tools for managing prompts, message histories, token usage and integrating custom tools, making it ideal for quickly building applications that interact with large language models (LLMs).
 
 ## Features
+
 - **Chat Completions**: Streamline chat completions, including streaming.
 - **Tool Integration**: Easily integrate tools to extend functionality.
 - **Structured Output**: Define schemas for structured JSON output.
 - **Images and Documents**: Attach images and documents to your messages.
 - **Usage Tracking**: Track token usage across completions and tool calls.
 - **Rate Limiter**: Ensure compliance with API rate limits.
+
+Llaminate is currently tested against Mistral, OpenAI and DeepSeek endpoints.
 
 ---
 
@@ -37,6 +42,20 @@ const llaminate = new Llaminate({
 
 const completion = await llaminate.complete("Hello, AI!");
 console.log(completion.message); // Outputs the AI's response
+```
+
+### Alternaive: Using defined endpoints
+Llaminate includes statically defined endpoints for tested services. Currently, these are `Llaminate.MISTRAL`, `Llaminate.OPENAI` and `Llaminate.DEEPSEEK`. You'll still need your API key and know the name of the model you want to use.
+
+```typescript
+const mistral = new Llaminate({
+  endpoint: Llaminate.MISTRAL,
+  key: "your-api-key",
+  model: "llm-model-name"
+});
+
+const completion = await mistral.complete("Bonjour, l'IA!");
+console.log(completion.message);
 ```
 
 ### Example 2: Streaming responses
@@ -106,22 +125,44 @@ console.log(`${completion.message} (${completion.tokens.total} tokens)`);
 
 ## Images and Documents
 
-With LLM's that support images and documents, you can included these as URL attachments to your completions. Note, however, that the `attachment` property cannot be passed to the constructor.
+With LLM's that support images and documents, you can included these as URL or base64 attachments to your completions. You will need to be aware of your LLM's capabilities. For example, to read a PDF: Mistral supports document URLs, while OpenAI supports file encoding.
 
-### Example: Including files with completions
+The `attachments` property cannot be passed to the constructor, only to a completion.
+
+### Example 1: Attaching images to completions
 ```typescript
 const attachments = [{
-    type: Llaminate.IMAGE,
-    url: "https://www.example.com/files/image.jpg"
+  type: Llaminate.IMAGE,
+   url: "https://www.example.com/files/image.jpg"
 }, {
-    type: Llaminate.DOCUMENT,
-    url: "https://www.example.com/files/document.pdf"
-}, {
-    type: Llaminate.IMAGE,
-    url: "data:image/jpeg;base64,..."
+  type: Llaminate.IMAGE,
+  url: "data:image/jpeg;base64,..."
 }];
 
-const completion = await llaminate.complete("Describe the attached files as if seeing them in a dream.", { attachments });
+const completion = await llaminate.complete("Describe the attached images as if seeing them in a dream.", { attachments });
+console.log(completion.message);
+```
+
+### Example 2: Attaching a document URL to completions
+```typescript
+const attachments = [{
+  type: Llaminate.DOCUMENT,
+  url: "https://www.example.com/files/document.pdf"
+}];
+
+const completion = await llaminate.complete("Pull one interesting point in detail from this document and explain it to me quickly, so if someone asks I can pretend I read it.", { attachments });
+console.log(completion.message);
+```
+
+### Example 3: Attaching a file to completions
+```typescript
+const attachments = [{
+  type: Llaminate.FILE,
+  data: "..." // base64-encoded file data
+  mime: Llaminate.PDF
+}];
+
+const completion = await llaminate.complete("Rewrite this document as if written by dogs for cats to read in their spare time.", { attachments });
 console.log(completion.message);
 ```
 
@@ -285,7 +326,7 @@ The `Llaminate` constructor accepts a configuration object with the following op
   - `url`: An internet accessible URL or base64 encoded URI to the file.
 - **`schema`**: A schema defining the format for JSON output.
 - **`system`**: An array of system messages to include in each interaction.
-- **`window`**: The number of messages to retain in the context window (default: `12`).
+- **`window`**: The number of user messages to retain in the context window (default: `12`).
 - **`tools`**: An array of custom tools to extend functionality. Each tool includes:
   - `function`: A schema defining the tool and how to use it.
   - `handler`: A function to execute tool calls and recieve arguments.

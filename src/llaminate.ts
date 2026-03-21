@@ -20,6 +20,14 @@ const validate = {
 const structuredClone = globalThis.structuredClone || ((obj) => JSON.parse(JSON.stringify(obj)));
 const noop = () => {};
 
+// read the file system.hbs and compile it into a function that takes a schema and returns the system prompt string with the schema injected
+const SYSTEM_HBS = (() => {
+    const fs = require("fs");
+    const Handlebars = require("handlebars");
+    const template = Handlebars.compile(fs.readFileSync(require.resolve("./system.hbs"), "utf-8"));
+    return (schema) => template({ schema });
+})();
+
 // Dynamically determine the Llaminate version and Node.js version
 const { version: LLAMINATE_VERSION } = require("./build-info.json");
 const NODE_TITLE = process.title || "Node.js";
@@ -27,6 +35,16 @@ const NODE_VERSION = process.version;
 const OS_TYPE = os.type();
 const OS_ARCH = os.arch();
 const USER_AGENT = `Llaminate/${LLAMINATE_VERSION} (https://github.com/oliver-moran/llaminate; ${NODE_TITLE}/${NODE_VERSION}; ${OS_TYPE}/${OS_ARCH})`;
+
+const enum ROLE {
+    ASSISTANT = "assistant",
+    DEVELOPER = "developer",
+    SYSTEM = "system",
+    USER = "user",
+    TOOL = "tool",
+}
+
+const ROLES = [ROLE.ASSISTANT, ROLE.DEVELOPER, ROLE.SYSTEM, ROLE.USER, ROLE.TOOL];
 
 interface Tool {
     function: {
@@ -38,9 +56,15 @@ interface Tool {
     handler?: (id, args) => Promise<any>;
 }
 
-interface Attachment {
+interface URLAttachment {
     type: "image" | "document";
     url: string;
+}
+
+interface Base64Attachment {
+    type: "file";
+    data: string;
+    mime: "application/pdf" | string;
 }
 
 interface LlaminateConfig {
@@ -49,7 +73,7 @@ interface LlaminateConfig {
     model?: string;
     schema?: Record<string, any>;
     system?: string[];
-    attachments?: Attachment[];
+    attachments?: URLAttachment[] | Base64Attachment[];
     window?: number;
     tools?: Tool[];
 
@@ -57,12 +81,14 @@ interface LlaminateConfig {
     options?: Record<string, any>;
     rpm?: number;
 
+    quirks?: LlaminateQuirks;
+
     handler?: (name, args) => Promise<any>;
     fetch?: (endpoint: string, options: Record<string, any>) => Promise<Response>;
 }
 
 interface Message {
-    role: "system" | "user" | "assistant" | "tool";
+    role: ROLE;
     content?: string | any; // Content can be a string or any JSON-serializable object, especially for tool messages
     name?: string; // For tool messages
     tool_calls?: any[]; // For assistant messages with tool calls
@@ -91,6 +117,12 @@ interface LlaminateContext {
     recurse: (messages: Message[], subtotal: Tokens) => AsyncGenerator<LlaminateResponse> | Promise<LlaminateResponse>;
 }
 
+interface LlaminateQuirks {
+    useImageObjects: boolean; // Whether to use { type: "image_url", image_url: { url } } instead of { type: "image_url", url }
+    useJSONObjects: boolean; // Whether to use { type: "json_object" } response format instead of { type: "json_schema", json_schema: { ... } }
+    useTextForJSONWithTools: boolean; // Whether to use { type: "text" } response format when both a schema and tools are present, as some models don't support schemas with tools
+}
+
 /**
  * Represents the Llaminate service for managing and interacting with AI models.
  */
@@ -100,6 +132,18 @@ export class Llaminate {
 
     public static IMAGE = "image";
     public static DOCUMENT = "document";
+    public static FILE = "file";
+
+    public static PDF = "application/pdf";
+
+    public static VERSION = LLAMINATE_VERSION;
+    public static USER_AGENT = USER_AGENT;
+
+    public static MISTRAL = "https://api.mistral.ai/v1/chat/completions";
+    public static OPENAI = "https://api.openai.com/v1/chat/completions";
+    public static ANTHROPIC = "https://api.anthropic.com/v1/messages";
+    public static GOOGLE = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+    public static DEEPSEEK = "https://api.deepseek.com/chat/completions";
 
     /* PRIVATE PROPERTIES */
 
@@ -137,9 +181,6 @@ export class Llaminate {
      * @throws Will throw an error if the provided configuration is invalid.
      */
     constructor(config: LlaminateConfig) {
-        if (config && config.attachments)
-            throw new Error("Attachments cannot be set in the constructor.");
-
         validateConfig(config);
 
         this.config.endpoint = config.endpoint;
@@ -155,10 +196,15 @@ export class Llaminate {
         this.config.options = {
             ...this.config.options,
             ...config.options,
-            model: config.model,
         };
         this.config.handler = config.handler || this.config.handler;
         this.config.fetch = config.fetch || this.config.fetch;
+
+        const quirks = getQuirks(this.config);
+        this.config.quirks = { ...quirks, ...config.quirks };
+
+        // Attachments are only allowed on a per-request basis, not in the constructor config
+        delete this.config.attachments;
 
         deepFreeze(this.config);
 
@@ -193,13 +239,15 @@ export class Llaminate {
             subtotal.output += tokens.output || 0;
             subtotal.total += tokens.total || 0;
 
-            const recursed = await handleTools.call(this, completion, { messages, result, subtotal, config: _config, recurse: _complete });
+            const calls = completion?.choices?.[0]?.message?.tool_calls || [];
+            const role = completion?.choices?.[0]?.message?.role;
+
+            const recursed = await handleTools.call(this, role, calls, { messages, result, subtotal, config: _config, recurse: _complete });
             if (recursed) return recursed;
             else {
-                const role = completion?.choices?.[0]?.message?.role || "assistant";
                 const message = validateResponse(completion?.choices?.[0]?.message?.content || "", _config);
                 result.push({
-                    role: role,
+                    role: role || ROLE.ASSISTANT,
                     content: message
                 });
                 updateHistory.call(this, prompt, result);
@@ -235,7 +283,9 @@ export class Llaminate {
 
             let buffer = "";
             let message = "";
-            let completion = null;
+            let role = "" as any;
+            let tools = [];
+
             const uuid = uuid_v4();
 
             while (true) {
@@ -252,29 +302,30 @@ export class Llaminate {
                     if (line.startsWith("data: ")) {
                         try {
                             const json = line.slice(6).trim(); // Extract the data after "data: "
-                            const data = JSON.parse(json);
-                            if (data.object === "chat.completion.chunk") {
-                                completion = data; // Update the completion object with the latest chunk
-                                const delta = completion.choices?.[0]?.delta?.content || "";
-                                message += delta; // Append the new content to the message
-                                const tokens = getUsageFromCompletion(completion);
-                                subtotal.input += tokens.input || 0;
-                                subtotal.output += tokens.output || 0;
-                                subtotal.total += tokens.total || 0;
-                                yield generateOutputObject(message, null, null, uuid);
-                            }
+                            const completion = JSON.parse(json);
+                            const delta = completion.choices?.[0]?.delta;
+
+                            message += delta?.content || ""; // Append the new content to the message
+                            if (!ROLES.includes(role)) role += delta.role || ""; // Update the role if provided in the delta, unless we already have a complete role
+                            tools = mergeToolsDeltas(tools, delta?.tool_calls || []); // Merge any new tool calls with the existing ones
+
+                            const tokens = getUsageFromCompletion(completion);
+                            subtotal.input += tokens.input || 0;
+                            subtotal.output += tokens.output || 0;
+                            subtotal.total += tokens.total || 0;
+
+                            yield generateOutputObject(message, null, null, uuid);
                         } catch (error) { /* meh */ } // Ignore JSON parsing errors for incomplete lines or non-JSON lines
                     }
                 }
             }
 
-            const recursed = await handleTools.call(this, completion, { messages, result, subtotal, config: _config, recurse: _stream });
+            const recursed = await handleTools.call(this, role, tools, { messages, result, subtotal, config: _config, recurse: _stream });
             if (recursed) for await (const result of recursed) yield result;
             else {
-                const role = completion?.choices?.[0]?.delta?.role || "assistant";
                 message = validateResponse(message, _config);
                 result.push({
-                    role: role,
+                    role: role || ROLE.ASSISTANT,
                     content: message
                 });
                 updateHistory.call(this, prompt, result);
@@ -325,10 +376,6 @@ export class Llaminate {
  * @returns The complete configuration object for the completion request.
  */
 function generateCompletionConfig(config?: LlaminateConfig, stream: boolean = false): LlaminateConfig {
-    if (config && config.rpm) {
-        throw new Error("RPM cannot be set on a per-request basis. Please set the RPM in the constructor configuration.");
-    }
-
     const _config = {
         ...this.config,
         ...config,
@@ -337,7 +384,8 @@ function generateCompletionConfig(config?: LlaminateConfig, stream: boolean = fa
         options: {
             ...this.config?.options,
             ...config?.options,
-            stream: stream
+            stream: stream,
+            stream_options: stream ? { include_usage: true } : undefined // required by OpenAI
         } as Record<string, any>
     };
 
@@ -350,20 +398,34 @@ function generateCompletionConfig(config?: LlaminateConfig, stream: boolean = fa
         delete _config.options.parallel_tool_calls;
     }
 
+    // RPM cannot be set on a per-request basis, so delete it from the config if provided
+    delete _config.rpm;
+
     validateConfig(_config);
 
-    // Some models (e.g. Mistral) don't support structured output with tools,
-    // so if both a schema and tools are provided we fall back to a text
-    // response and include instructions in the system prompt to format the
-    // response as JSON adhering to the schema. If only a schema is provided
-    // without tools, we can use the structured response format with the JSON
-    // schema directly.
+    if (_config.schema) {
+        const schema = JSON.stringify(cleanse(_config.schema), null, 2);
+        switch (true) {
+            // Some models (e.g. Mistral) don't support structured output with tools,
+            // so if both a schema and tools are provided we fall back to a text
+            // response and include instructions in the system prompt to format the
+            // response as JSON adhering to the schema. If only a schema is provided
+            // without tools, we can use the structured response format with the JSON
+            // schema directly.
+            
+            case _config.quirks.useTextForJSONWithTools && _config.tools?.length > 0:
+                _config.system.unshift(SYSTEM_HBS(schema));
+                _config.options.response_format = { type: "text" };
+                break;
+            
+            case _config.quirks.useJSONObjects:
+                _config.system.unshift(SYSTEM_HBS(schema));
+                _config.options.response_format = { type: "json_object" };
+                break;
 
-    if (hasSchemaAndTools(_config)) {
-        _config.system.push(`Your response must be in JSON format adhering to the provided schema:\n\n${JSON.stringify(_config.schema, null, 2)}`);
-        _config.options.response_format = { type: "text" };
-    } else if (_config.schema) {
-        _config.options.response_format = { type: "json_schema", json_schema:  { name: `schema_${uuid_v4()}`, schema: _config.schema } };
+            default:
+                _config.options.response_format = { type: "json_schema", json_schema:  { name: `schema_${uuid_v4()}`, schema: _config.schema } };
+        }
     }
 
     return _config;
@@ -374,7 +436,7 @@ function generateCompletionConfig(config?: LlaminateConfig, stream: boolean = fa
  * @param config - The configuration object to validate.
  * @throws Will throw an error if the configuration is invalid.
  */
-function validateConfig(config: LlaminateConfig) {
+function validateConfig(config: LlaminateConfig): void {
     if (!validate.config(config)) {
         throw new Error(`Invalid configuration: ${ajv.errorsText(validate.config.errors)}`);
     }
@@ -400,6 +462,7 @@ async function fetch(messages: Message[], config: LlaminateConfig): Promise<Resp
 
     const body: Record<string, any> = {
         ...config.options,
+        model: config.model,
         messages,
     };
 
@@ -411,36 +474,66 @@ async function fetch(messages: Message[], config: LlaminateConfig): Promise<Resp
 }
 
 /**
+ * Merges incoming tool call deltas with existing tool calls, combining their properties based on their index.
+ * @param existing - The existing tool calls.
+ * @param incoming - The incoming tool call deltas.
+ * @returns The merged tool calls.
+ */
+function mergeToolsDeltas(existing: any[], incoming: any[] = []): any[] {
+    const merged = [...existing];
+    incoming.forEach((delta) => {
+        const index = delta.index;
+        merged[index] = merged[index] || {
+            type: "",
+            function: {
+                name: "",
+                arguments: ""
+            },
+            id: ""
+        }
+
+        merged[index].type += delta.type || "";
+        merged[index].function.name += delta.function?.name || "";
+        merged[index].function.arguments += delta.function?.arguments || "";
+        merged[index].id += delta.id || "";
+    });
+    return merged;
+}
+
+/**
  * Handles tool calls based on the completion response.
- * @param completion - The completion response containing tool calls.
+ * @param role - The role of the entity making the tool calls.
+ * @param calls - The tool calls to handle.
  * @param context - The context for handling the tools.
  * @returns A promise resolving to the response after handling tools.
  */
-async function handleTools(completion: any, context: LlaminateContext): Promise<LlaminateResponse> {
-    const calls = completion?.choices?.[0]?.message?.tool_calls || completion?.choices?.[0]?.delta?.tool_calls || [];
-    const role = completion?.choices?.[0]?.message?.role || completion?.choices?.[0]?.delta?.role || "assistant";
-
+async function handleTools(role: ROLE, calls: any, context: LlaminateContext): Promise<LlaminateResponse> {
     if (calls.length > 0) {
         context.result.push({
-            role: role,
-            tool_calls: calls.map(call => cleanse(call))
+            role: role || ROLE.ASSISTANT,
+            tool_calls: calls.map(call => {
+                const cleansed = cleanse(call);
+                cleansed.type = cleansed.type || "function"; // Ensure type is set to "function" for backward compatibility with models that don't include the type in the delta updates
+                cleansed.function.arguments = sanatiseJSON(cleansed.function.arguments);
+                return cleansed;
+            })
         });
 
         for (const call of calls) {
             const tool = context.config.tools.find((tool) => tool.function.name === call.function.name);
             if (tool) {
-                const args = JSON.parse(call.function.arguments);
                 try {
+                    const args = JSON.parse(call.function.arguments);
                     const response = await (tool.handler || context.config.handler || noop).call(globalThis, call.function.name, args);
                     context.result.push({
-                        role: "tool",
+                        role: ROLE.TOOL,
                         name: tool.function.name,
                         content: serialize(response),
                         tool_call_id: call.id,
                     });
                 } catch (error) {
                     context.result.push({
-                        role: "tool",
+                        role: ROLE.TOOL,
                         name: tool.function.name,
                         content: JSON.stringify({ error: error.message }),
                         tool_call_id: call.id,
@@ -491,7 +584,7 @@ function generateOutputObject(message: string | any, result: Message[], tokens: 
 function prepareMessageWindow(prompt: string | Message[], config: LlaminateConfig): Message[] {
     let messages = [];
     if (Array.isArray(prompt)) messages = getWindowFromHistory(prompt, config); // Set history to the initial messages if an array is provided
-    else if (typeof prompt === "string") messages = getWindowFromHistory(this.history.concat({ role: "user", content: prompt } as Message), config);
+    else if (typeof prompt === "string") messages = getWindowFromHistory(this.history.concat({ role: ROLE.USER, content: prompt } as Message), config);
     else throw new Error("Prompt must be a string or an array of messages.");
 
     // If attachments are provided in the config, append them to the content of the last message
@@ -502,15 +595,25 @@ function prepareMessageWindow(prompt: string | Message[], config: LlaminateConfi
                 if (attachment.type === Llaminate.IMAGE) {
                     return {
                         type: "image_url",
-                        image_url: attachment.url
+                        image_url: config.quirks.useImageObjects ? {
+                            url: attachment.url
+                        } : attachment.url
                     };
                 } else if (attachment.type === Llaminate.DOCUMENT) {
                     return {
                         type: "document_url",
                         document_url: attachment.url
                     };
+                } else if (attachment.type === Llaminate.FILE) {
+                    return {
+                        type: "file",
+                        file: {
+                            file_data: `data:${attachment.mime};base64,${attachment.data}`,
+                            filename: uuid_v4()
+                        },
+                    };
                 } else {
-                    throw new Error(`Unsupported attachment type: ${attachment.type}`);
+                    throw new Error(`Unsupported attachment type: ${attachment.type}.`);
                 }
             })
         ]
@@ -528,11 +631,11 @@ function prepareMessageWindow(prompt: string | Message[], config: LlaminateConfi
 function getWindowFromHistory(messages: Message[], config: LlaminateConfig): Message[] {
     let count = 0;
     return [
-        ...(config.system || []).map(content => ({ role: "system", content } as Message)),
+        ...(config.system || []).map(content => ({ role: ROLE.SYSTEM, content } as Message)),
         ...(messages.concat().reverse().map(message => {
-            if (message.role === "system") return message; // Always include system messages
+            if (message.role === ROLE.SYSTEM) return message; // Always include system messages
             if (count < config.window) {
-                if (message.role === "user") count++;
+                if (message.role === ROLE.USER) count++;
                 return message;
             }
         }).filter(Boolean).reverse())
@@ -549,7 +652,7 @@ function getWindowFromHistory(messages: Message[], config: LlaminateConfig): Mes
  */
 function updateHistory(prompt: string | Message[], result: Message[]): void {
     if (Array.isArray(prompt)) this.history = prompt.concat(result);
-    else if (typeof prompt === "string") this.history.push({ role: "user", content: prompt } as Message, ...result);
+    else if (typeof prompt === "string") this.history.push({ role: ROLE.USER, content: prompt } as Message, ...result);
 }
 
 /**
@@ -583,8 +686,8 @@ function cleanse(obj: Record<string, any>): Record<string, any> {
  */
 function validateResponse(message:string, config: LlaminateConfig):any {
     if (config.schema) {
-        const json:string = hasSchemaAndTools(config)
-            ? message.replace(/^```json\n/, "").replace(/^```\n/, "").replace(/\n```$/, "").trim()
+        const json:string = ["text", "json_object"].includes(config.options?.response_format?.type)
+            ? sanatiseJSON(message)
             : message;
         const obj:any = JSON.parse(json);
 
@@ -594,16 +697,7 @@ function validateResponse(message:string, config: LlaminateConfig):any {
 
         return JSON.stringify(obj);
     } else if (message) return message;
-    else throw new Error("Response message is empty.");
-}
-
-/**
- * Checks if the configuration includes both a schema and tools.
- * @param config - The configuration to check.
- * @returns True if both a schema and tools are present, false otherwise.
- */
-function hasSchemaAndTools(config: LlaminateConfig): boolean {
-    return !!(config.schema && config.tools && config.tools.length > 0);
+    else throw new Error("Response from LLM is empty.");
 }
 
 /**
@@ -656,4 +750,45 @@ function deepFreeze(obj: any): any {
     }
 
     return Object.freeze(obj);
+}
+
+/**
+ * Determines specific quirks or requirements for different AI service
+ * endpoints, such as how to format attachments for Mistral's API.
+ * @param config - The configuration object to determine quirks based on the endpoint.
+ * @returns An object containing boolean flags for different services
+ * indicating whether the endpoint matches that service's API format.
+ * This can be used to apply service-specific formatting or handling logic in
+ * other parts of the code.
+ */
+function getQuirks(config: LlaminateConfig): LlaminateQuirks {
+    const endpoint = config.endpoint;
+
+    const isMistral = endpoint.startsWith(Llaminate.MISTRAL);
+    const isOpenAI = endpoint.startsWith(Llaminate.OPENAI);
+    const isGoogle = endpoint.startsWith(Llaminate.GOOGLE);
+    const isDeepSeek = endpoint.startsWith(Llaminate.DEEPSEEK);
+    const isAnthropic = endpoint.startsWith(Llaminate.ANTHROPIC);
+
+    return {
+        useImageObjects: !isMistral, // These APIs require the { type: "image_url", image_url: { url } } format for attachments
+        useJSONObjects: isDeepSeek || isMistral, // This API don't support { type: "json_schema" }, instead use { type: "json_object" } and include schema in the system prompt
+        useTextForJSONWithTools: isMistral, // These APIs don't support { type: "json_schema" } with tools, so fallback to { type: "json_object" } when using tools
+    };
+}
+
+/**
+ * Sanitises a JSON string by extracting the JSON object from the string and ensuring it is valid JSON.
+ * This is necessary because some models may return the JSON response wrapped in additional text or formatting.
+ * @param json - The JSON string to sanitise.
+ * @returns The sanitised JSON string.
+ */
+function sanatiseJSON(json: string): string {
+    try {
+        const match = json.match(/{.*}/s)?.[0] || "{}"; // Extract the JSON object from the string, or default to an empty object if not found
+        JSON.parse(match); // try to parse the JSON to ensure it's valid
+        return match;
+    } catch (error) {
+        throw new Error(`Invalid JSON response: ${json}`);
+    }
 }

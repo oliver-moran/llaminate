@@ -23,10 +23,28 @@
             "items": {
                 "type": "object",
                 "properties": {
-                    "type": { "type": "string", "enum": ["image", "document"] },
-                    "url": { "type": "string" }
+                    "type": { "type": "string", "enum": ["image", "document", "file"] },
+                    "url": { "type": "string" },
+                    "data": { "type": "string" },
+                    "mime": { "type": "string" }
                 },
-                "required": ["type", "url"]
+                "oneOf": [
+                    {
+                        "properties": {
+                            "type": { "enum": ["image", "document"] },
+                            "url": { "type": "string" }
+                        },
+                        "required": ["type", "url"]
+                    },
+                    {
+                        "properties": {
+                            "type": { "enum": ["file"] },
+                            "data": { "type": "string" },
+                            "mime": { "type": "string" }
+                        },
+                        "required": ["type", "data", "mime"]
+                    }
+                ]
             }
         },
         "window": {
@@ -67,6 +85,12 @@
         "rpm": {
             "type": "integer",
             "minimum": 1
+        },
+        "quirks": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "boolean"
+            }
         },
         "fetch": { "not": { "type": "null" } }
     },

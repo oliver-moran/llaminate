@@ -7,9 +7,9 @@ const matchReply = () => ({
           })
         ]),
         tokens: expect.objectContaining({
-          input: expect.any(Number),
-          output: expect.any(Number),
-          total: expect.any(Number)
+          input: expect.toBeGreaterThan(0),
+          output: expect.toBeGreaterThan(0),
+          total: expect.toBeGreaterThan(0)
         }),
         uuid: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
         // New validation for JSON structure
@@ -43,9 +43,9 @@ const matchToolReply = (name) => ({
           })
         ]),
         tokens: expect.objectContaining({
-          input: expect.any(Number),
-          output: expect.any(Number),
-          total: expect.any(Number)
+          input: expect.toBeGreaterThan(0),
+          output: expect.toBeGreaterThan(0),
+          total: expect.toBeGreaterThan(0)
         }),
         uuid: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
       });
@@ -59,9 +59,9 @@ const matchSchemaReply = (schema) => ({
           })
         ]),
         tokens: expect.objectContaining({
-          input: expect.any(Number),
-          output: expect.any(Number),
-          total: expect.any(Number)
+          input: expect.toBeGreaterThan(0),
+          output: expect.toBeGreaterThan(0),
+          total: expect.toBeGreaterThan(0)
         }),
         uuid: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
       });

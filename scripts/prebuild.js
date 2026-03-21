@@ -7,7 +7,7 @@ const src = path.join(__dirname, "../src");
 const dist = path.join(__dirname, "../dist");
 
 const package = require("../package.json");
-const files = ["config.schema.json"];
+const files = ["config.schema.json", "system.hbs"];
 
 // Ensure the dist directory exists
 

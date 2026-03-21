@@ -11,4 +11,11 @@ function toMatchSchema(json, schema) {
     };
 }
 
-expect.extend({toMatchSchema});
+function toBeGreaterThan(received, floor) {
+    return {
+        message: () => `expected ${this.utils.printReceived(received)} to be greater than ${floor}`,
+        pass: received > floor,
+    };
+}
+
+expect.extend({ toMatchSchema, toBeGreaterThan });

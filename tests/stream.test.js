@@ -2,7 +2,7 @@ const { Llaminate, llaminate, config, tools, schema } = require("./common/setup.
 const { matchReply, matchToolReply, matchSchemaReply } = require("./common/matches.js");
 
 describe("Streaming", () => {
-    beforeAll(() => { llaminate.clear(); });
+    beforeEach(() => { llaminate.clear(); });
     afterAll(() => { llaminate.clear(); });
 
     test("given a question, replies with a stream", async () => {
@@ -43,7 +43,8 @@ describe("Streaming", () => {
         expect(chunks[chunks.length - 1]).toMatchObject(matchToolReply(tools[0].function.name));
     });
 
-    test("given a schema, replies with a stream and use that schema", async () => {
+    test("given a schema, replies with a stream and uses that schema", async () => {
+        llaminate.clear();
         const stream = await llaminate.stream("How many bicycles are there in Beijing?", { schema });
 
         const chunks = [];
@@ -51,6 +52,16 @@ describe("Streaming", () => {
 
         expect(chunks.length).toBeGreaterThan(1);
         expect(chunks[chunks.length - 1]).toMatchObject(matchSchemaReply(schema));
+    });
+
+    test("given a schema, a tool and a relevant question, uses the tool and replies with a stream adhering to the schema", async () => {
+        const stream = await llaminate.stream("What time is it?", { schema, tools });
+
+        const chunks = [];
+        for await (const chunk of stream) chunks.push(chunk);
+
+        expect(chunks.length).toBeGreaterThan(1);
+        expect(chunks[chunks.length - 1]).toMatchObject(matchToolReply(tools[0].function.name));
     });
 
 });

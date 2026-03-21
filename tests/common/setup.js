@@ -17,7 +17,7 @@ const tools = [
       parameters: {
         type: "object",
         properties: {},
-        required: []
+        required: [],
       }
     },
     handler: async () => {
@@ -29,18 +29,18 @@ const tools = [
 const schema = {
   type: "object",
   properties: {
-      reply: {
-          type: "string",
-          description: "Your response to the user's query."
-      },
-      thoughts: {
+    reply: {
         type: "string",
-        description: "Your internal thoughts about the user's query."
-      }
+        description: "Your response to the user's query."
+    },
+    thoughts: {
+      type: "string",
+      description: "Your internal thoughts about the user's query."
+    },
   },
   required: ["reply", "thoughts"]
 };
 
-const llaminate = new Llaminate({ ...config, tools, rpm: Number(process.env.TEST_RPM) });
+const llaminate = new Llaminate({ ...config, rpm: Number(process.env.TEST_RPM) });
 
 module.exports = { Llaminate, llaminate, config, tools, schema };

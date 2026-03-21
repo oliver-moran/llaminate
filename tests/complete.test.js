@@ -3,7 +3,7 @@ const { matchReply, matchToolReply, matchSchemaReply } = require("./common/match
 
 describe("Completion", () => {
 
-    beforeAll(() => { llaminate.clear(); });
+    beforeEach(() => { llaminate.clear(); });
     afterAll(() => { llaminate.clear(); });
 
     test("given a question, replies with an answer", async () => {

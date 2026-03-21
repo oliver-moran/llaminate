@@ -1,6 +1,6 @@
 const { Llaminate, llaminate, config, tools, schema } = require("./common/setup.js");
 const { matchReply, matchToolReply, matchSchemaReply } = require("./common/matches.js");
-const { zx } = require("./common/base64.js");
+const { zx, cc } = require("./common/base64.js");
 
 const images = [{
     type: Llaminate.IMAGE,
@@ -17,9 +17,17 @@ const base64 = [{
     url: "data:image/jpeg;base64," + zx
 }];
 
+const file = [{
+    type: Llaminate.FILE,
+    data: cc,
+    mime: Llaminate.PDF,
+}];
+
 describe("Attachments", () => {
 
-    beforeAll(() => { llaminate.clear(); });
+    if (config.endpoint.startsWith(Llaminate.DEEPSEEK)) return;
+
+    beforeEach(() => { llaminate.clear(); });
     afterAll(() => { llaminate.clear(); });
 
     test("given an image, replies with a description", async () => {
@@ -27,6 +35,7 @@ describe("Attachments", () => {
             .resolves.toMatchObject(matchReply());
     });
 
+    if (llaminate.config.endpoint.startsWith(Llaminate.MISTRAL))
     test("given a document, replies with a summary", async () => {
         await expect(llaminate.complete("What is in this document?", { attachments: documents }))
             .resolves.toMatchObject(matchReply());
@@ -36,5 +45,12 @@ describe("Attachments", () => {
         await expect(llaminate.complete("What is in this image?", { attachments: base64 }))
             .resolves.toMatchObject(matchReply());
     });
+
+    if (llaminate.config.endpoint.startsWith(Llaminate.OPENAI))
+    test("given a file, replies with a summary", async () => {
+        await expect(llaminate.complete("What is in this file?", { attachments: file }))
+            .resolves.toMatchObject(matchReply());
+    });
+
 
 });
