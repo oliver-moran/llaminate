@@ -4,7 +4,7 @@ Llaminate is a simple but powerful library designed to abstract chat completions
 
 It provides robust tools for managing prompts, message histories, token usage and integrating custom tools, making it ideal for quickly building applications that interact with large language models (LLMs).
 
-Llaminate is currently tested against Mistral, OpenAI and DeepSeek endpoints.
+Llaminate is currently tested against Mistral, Anthropic, OpenAI and DeepSeek endpoints.
 
 ## Features
 
@@ -45,7 +45,7 @@ console.log(completion.message); // outputs the AI's response
 ```
 
 ### Alternative: Using defined endpoints
-Llaminate includes statically defined endpoints for tested services. Currently, these are `Llaminate.MISTRAL`, `Llaminate.OPENAI` and `Llaminate.DEEPSEEK`. You'll still need your API key and know the name of the model you want to use.
+Llaminate includes statically defined endpoints for tested services. Currently, these are `Llaminate.MISTRAL`, `Llaminate.ANTHROPIC`, `Llaminate.OPENAI` and `Llaminate.DEEPSEEK`. You'll still need your API key and know the name of the model you want to use.
 
 ```typescript
 const mistral = new Llaminate({
@@ -125,28 +125,28 @@ console.log(`${completion.message} (${completion.tokens.total} tokens)`);
 
 ## Images and Documents
 
-With LLM's that support images and documents, you can included these as URL or base64 attachments to your completions. You will need to be aware of your LLM's capabilities. For example, to read a PDF: Mistral supports document URLs, while OpenAI supports file encoding.
+With LLM's that support images and documents, you can included these as URL or base64 attachments to your completions. The `attachments` property cannot be passed to the constructor, only to a completion.
 
-The `attachments` property cannot be passed to the constructor, only to a completion.
+The `Llaminate.JPEG`, `Llaminate.PNG`, `Llaminate.GIF`, `Llaminate.WEBP` and `Llaminate.PDF` types are defined statically. Other types that may be supported individual LLms can be included as strings (e.g. `image/avif` or `text/csv`).
 
-### Example 1: Attaching images to completions
+### Example 1: Attaching images to a completion
 ```typescript
 const attachments = [{
-  type: Llaminate.IMAGE,
-   url: "https://www.example.com/files/image.jpg"
+  type: Llaminate.JPEG,
+  url: "https://www.example.com/files/image.jpg"
 }, {
-  type: Llaminate.IMAGE,
-  url: "data:image/jpeg;base64,..."
+  type: Llaminate.WEBP,
+  url: "data:image/webp;base64,..."
 }];
 
 const completion = await llaminate.complete("Describe the attached images as if seeing them in a dream.", { attachments });
 console.log(completion.message);
 ```
 
-### Example 2: Attaching a document URL to completions
+### Example 2: Attaching a document to a completion
 ```typescript
 const attachments = [{
-  type: Llaminate.DOCUMENT,
+  type: Llaminate.PDF,
   url: "https://www.example.com/files/document.pdf"
 }];
 
@@ -154,23 +154,38 @@ const completion = await llaminate.complete("Pull one interesting point in detai
 console.log(completion.message);
 ```
 
-### Example 3: Attaching a file to completions
-```typescript
-const attachments = [{
-  type: Llaminate.FILE,
-  data: "..." // base64-encoded file data
-  mime: Llaminate.PDF
-}];
+---
 
-const completion = await llaminate.complete("Rewrite this document as if written by dogs for cats to read in their spare time.", { attachments });
-console.log(completion.message);
+## Structured Output
+
+Llaminate allows you to define a schema for structured output, ensuring that the AI's responses adhere to a specific format. This is particularly useful when you need predictable and well-defined responses for further processing.
+
+### Example: Defining a schema
+```typescript
+const schema = {
+  type: "object",
+  properties: {
+      reply: {
+          type: "string",
+          description: "Your response to the user's query."
+      },
+      thoughts: {
+        type: "string",
+        description: "Your internal thoughts about the user's query."
+      }
+  },
+  required: ["reply", "thoughts"]
+};
+
+const completion = await llaminate.complete("Should I cycle my bike or take public transport?", { tools, schema });
+console.log(completion.result);
 ```
 
 ---
 
 ## Using Tools
 
-Llaminate allows you to integrate custom tools to extend its functionality. Tools can be used to handle specific tasks during interactions with the AI model.
+If your LLM supports function calling, Llaminate allows you to integrate custom tools to extend its functionality. Tools can be used to handle specific tasks during interactions with the AI model.
 
 ### Example: Defining and using a tool
 ```typescript
@@ -205,33 +220,6 @@ console.log(completion.result);
 ### Alternative: Passing tools as configuration alongside prompts
 ```typescript
 const completion = await llaminate.complete("Should I read a book or watch a movie?", { tools });
-console.log(completion.result);
-```
-
----
-
-## Structured Output
-
-Llaminate allows you to define a schema for structured output, ensuring that the AI's responses adhere to a specific format. This is particularly useful when you need predictable and well-defined responses for further processing.
-
-### Example: Defining a schema
-```typescript
-const schema = {
-  type: "object",
-  properties: {
-      reply: {
-          type: "string",
-          description: "Your response to the user's query."
-      },
-      thoughts: {
-        type: "string",
-        description: "Your internal thoughts about the user's query."
-      }
-  },
-  required: ["reply", "thoughts"]
-};
-
-const completion = await llaminate.complete("Should I cycle my bike or take public transport?", { tools, schema });
 console.log(completion.result);
 ```
 
@@ -322,7 +310,7 @@ The `Llaminate` constructor accepts a configuration object with the following op
 - **`model`** (required): Specify the model to use (e.g., `"mistral-small-latest"`).
 - **`rpm`**: Throttle requests in requests per minute (i.e. rate limiter).
 - **`attachments`** An array of image and documents to include in a completion:
-  - `type`: Either `Llaminate.IMAGE` or `Llaminate.DOCUMENT`.
+  - `type`: The file's mime type (e.g. `image/jpeg` or `LLaminate.JPEG`).
   - `url`: An internet accessible URL or base64 encoded URI to the file.
 - **`schema`**: A schema defining the format for JSON output.
 - **`system`**: An array of system messages to include in each interaction.

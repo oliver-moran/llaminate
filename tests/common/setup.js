@@ -38,7 +38,8 @@ const schema = {
       description: "Your internal thoughts about the user's query."
     },
   },
-  required: ["reply", "thoughts"]
+  required: ["reply", "thoughts"],
+  additionalProperties: false,
 };
 
 const llaminate = new Llaminate({ ...config, rpm: Number(process.env.TEST_RPM) });

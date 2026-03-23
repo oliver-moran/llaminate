@@ -23,28 +23,10 @@
             "items": {
                 "type": "object",
                 "properties": {
-                    "type": { "type": "string", "enum": ["image", "document", "file"] },
-                    "url": { "type": "string" },
-                    "data": { "type": "string" },
-                    "mime": { "type": "string" }
+                    "type": { "type": "string" },
+                    "url": { "type": "string" }
                 },
-                "oneOf": [
-                    {
-                        "properties": {
-                            "type": { "enum": ["image", "document"] },
-                            "url": { "type": "string" }
-                        },
-                        "required": ["type", "url"]
-                    },
-                    {
-                        "properties": {
-                            "type": { "enum": ["file"] },
-                            "data": { "type": "string" },
-                            "mime": { "type": "string" }
-                        },
-                        "required": ["type", "data", "mime"]
-                    }
-                ]
+                "required": ["type", "url"]
             }
         },
         "window": {
@@ -88,9 +70,38 @@
         },
         "quirks": {
             "type": "object",
-            "additionalProperties": {
-                "type": "boolean"
-            }
+            "properties": {
+                "attachments": {
+                    "type": "object",
+                    "properties": {
+                        "file": { "type": "boolean" },
+                        "source": { "type": "boolean" }
+                    },
+                    "additionalProperties": true
+                },
+                "input_schema": { "type": "boolean" },
+                "json_schema": { "type": "boolean" },
+                "max_tokens": { "type": "integer", "minimum": 1 },
+                "output_config": { "type": "boolean" },
+                "role": {
+                    "type": "object",
+                    "properties": {
+                        "system": { "type": "boolean" },
+                        "tool": { "type": "boolean" }
+                    },
+                    "additionalProperties": true
+                },
+                "stream_options": { "type": "boolean" },
+                "tools": {
+                    "type": "object",
+                    "properties": {
+                        "json_schema": { "type": "boolean" },
+                        "json_object": { "type": "boolean" }
+                    },
+                    "additionalProperties": true
+                }
+            },
+            "additionalProperties": true
         },
         "fetch": { "not": { "type": "null" } }
     },
