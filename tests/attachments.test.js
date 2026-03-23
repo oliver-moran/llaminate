@@ -22,9 +22,13 @@ const base64_documents = [{
     url: `data:${Llaminate.PDF};base64,${cc}`,
 }];
 
-describe("Attachments", () => {
+describe.maybe = (title, fn) => {
+    // Attachments tests are skipped because the DeepSeek API doesn't support them.
+    if (config.endpoint.startsWith(Llaminate.DEEPSEEK)) return describe.skip(title, fn);
+    else return describe(title, fn);
+}
 
-    if (config.endpoint.startsWith(Llaminate.DEEPSEEK)) return;
+describe.maybe("Attachments", () => {
 
     beforeEach(() => { llaminate.clear(); });
     afterAll(() => { llaminate.clear(); });
