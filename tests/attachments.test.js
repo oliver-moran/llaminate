@@ -2,11 +2,18 @@ const { Llaminate, llaminate, config, tools, schema } = require("./common/setup.
 const { matchReply, matchToolReply, matchSchemaReply } = require("./common/matches.js");
 const { zx, cc } = require("./common/base64.js");
 
+
+// NASA
+// Blue Marble image from Apollo 17, taken by the crew on December 7, 1972
+// https://www.nasa.gov/image-article/earth-full-view-from-apollo-17/
 const images = [{
     type: Llaminate.JPEG,
-    url: "https://upload.wikimedia.org/wikipedia/commons/a/ae/Alan_Turing_%281912-1954%29_at_Princeton_University_in_1936.jpg"
+    url: "https://www.nasa.gov/wp-content/uploads/2023/03/115334main_image_feature_329_ys_full.jpg"
 }];
 
+// United Nations
+// The UN Charter, signed on June 26, 1945
+// https://treaties.un.org/doc/publication/ctc/uncharter.pdf
 const documents = [{
     type: Llaminate.PDF,
     url: "https://treaties.un.org/doc/publication/ctc/uncharter.pdf"
