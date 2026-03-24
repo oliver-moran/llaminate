@@ -8,17 +8,9 @@
     "prebuild": "node scripts/prebuild.js",
     "build": "bash scripts/build.sh",
     "prepare": "npm run build",
-    "test": "jest --i",
+    "pretest": "node scripts/pretest.js",
+    "test": "jest --i --config=./tests/jest.config.json",
     "scratch": "node --env-file=.env ./tests/scratch.js"
-  },
-  "jest": {
-    "silent": true,
-    "setupFiles": [
-      "@dotenvx/dotenvx/config"
-    ],
-    "testTimeout": 3600000,
-    "openHandlesTimeout": 3600000,
-    "passWithNoTests": true
   },
   "keywords": [
     "LLM",
