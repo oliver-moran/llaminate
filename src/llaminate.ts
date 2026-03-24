@@ -534,7 +534,6 @@ async function applyQuirks(body: Record<string, any>, config: LlaminateConfig): 
             // content might be a string, so we need to check if it's an array before trying to iterate over it
 
             for (const content of message?.content || []) {
-                console.log(content);
 
                 /**
                  * Anthropic's API requires attachments to be sent in a unique
@@ -658,8 +657,8 @@ async function applyQuirks(body: Record<string, any>, config: LlaminateConfig): 
      * message array with the role "system",
      */
     if (config.quirks?.role?.system === false) {
+        modified.system = [...instructions.map(text => ({ type: "text", text: text })), ...modified.messages.filter(message => message.role === ROLE.SYSTEM).map(message => ({ type: "text", text: message.content }))];
         modified.messages = modified.messages.filter(message => message.role !== ROLE.SYSTEM);
-        modified.system = [...instructions.map(text => ({ role: ROLE.SYSTEM, content: text })), ...modified.messages.filter(message => message.role === ROLE.SYSTEM).map((message => ({ type: "text", text: message.content })))];
     } else {
         modified.messages = [...instructions.map(text => ({ role: ROLE.SYSTEM, content: text })), ...(modified.messages || [])];
     }
@@ -1051,7 +1050,9 @@ function getQuirks(config: LlaminateConfig): LlaminateQuirks {
  * @throws Will throw an error if the fetch request fails or if there is an issue reading the file.
  */
 async function fetchUrlAsBase64(url: string): Promise<string> {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+        headers: { "User-Agent": USER_AGENT }
+    });
     if (!response.ok) {
         throw new Error(`Failed to fetch file: ${response.statusText}`);
     }
