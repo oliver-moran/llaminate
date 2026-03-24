@@ -30,8 +30,11 @@ const base64_documents = [{
 }];
 
 describe.maybe = (title, fn) => {
-    // Attachments tests are skipped because the DeepSeek API doesn't support them.
-    if (config.endpoint.startsWith(Llaminate.DEEPSEEK)) return describe.skip(title, fn);
+    // DeepSeek API doesn't support images or documents
+    if (llaminate.config.endpoint.startsWith(Llaminate.DEEPSEEK)) return describe.skip(title, fn);
+    // Anthropic's rate limits are too limited to allow automated file testing
+    if (llaminate.config.endpoint.startsWith(Llaminate.ANTHROPIC)) return describe.skip(title, fn);
+
     else return describe(title, fn);
 }
 
