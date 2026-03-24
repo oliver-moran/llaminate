@@ -58,14 +58,8 @@ interface Tool {
 }
 
 interface URLAttachment {
-    type: "image" | "document";
+    type: string;
     url: string;
-}
-
-interface Base64Attachment {
-    type: "file";
-    data: string;
-    mime: "application/pdf" | string;
 }
 
 interface LlaminateConfig {
@@ -74,7 +68,7 @@ interface LlaminateConfig {
     model?: string;
     schema?: Record<string, any>;
     system?: string[];
-    attachments?: URLAttachment[] | Base64Attachment[];
+    attachments?: URLAttachment[];
     window?: number;
     tools?: Tool[];
 
@@ -120,6 +114,7 @@ interface LlaminateContext {
 
 interface LlaminateQuirks {
     attachments?: {
+        document_url?: "image_url";
         file?: boolean;
         source?: boolean;
     },
@@ -184,7 +179,7 @@ export class Llaminate {
             parallel_tool_calls: true,
             response_format: { type: "text" }
         },
-        handler: async (name, args) => { throw new Error(`No \`handler\` method provided for tool ${name}`) },
+        handler: async (name, args) => { throw new Error(`No \`handler\` method provided for \`${name}\` was provided in the Llaminate configuration.`) },
         fetch: globalThis.fetch.bind(globalThis),
     };
 
@@ -247,7 +242,7 @@ export class Llaminate {
 
         async function _complete(): Promise<LlaminateResponse> {
             const response = await this.limiter.queue(() => sendMessages([...messages, ...result], _config) );
-            if (!response.ok) throw new Error(`HTTP status ${response.status} from ${_config.endpoint}: ${await response.text()}`);
+            if (!response.ok) throw new Error(`HTTP status ${response.status} from ${_config.endpoint}.\n\n${await response.text()}`);
 
             const completion = await response.json();
             const message = completion?.choices?.[0]?.message || completion?.content?.[0] || null;
@@ -293,8 +288,8 @@ export class Llaminate {
         async function* _stream(): AsyncGenerator<LlaminateResponse> {
             const response = await this.limiter.queue(() => sendMessages([...messages, ...result], _config) );
 
-            if (!response.ok) throw new Error(`HTTP status ${response.status} from ${_config.endpoint}: ${await response.text()}`);
-            if (!response.body) throw new Error(`Readable stream not supported at ${_config.endpoint}: ${await response.text()}`);
+            if (!response.ok) throw new Error(`HTTP status ${response.status} from ${_config.endpoint}.\n\n${await response.text()}`);
+            if (!response.body) throw new Error(`No readable stream from ${_config.endpoint}.\n\n${await response.text()}`);
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
@@ -373,10 +368,9 @@ export class Llaminate {
      * By default, this will include all messages in the history.
      * @param window - The number of recent user messages to include along with any system messages.
      * @returns An array of messages from the internal history.
-     * @throws Will throw an error if the provided window size is invalid (e.g., negative number).
      */
     export(window: number = Infinity): Message[] {
-        if (window && (isNaN(window) || window < 1)) throw new Error("Window size must be an integer greater than 0.");
+        if (window && (isNaN(window) || window < 1)) window = 1; // recover with a forced minimum of 1 if an invalid window is provided
         const config = { ...this.config, window } as LlaminateConfig;
         const history = getWindowFromHistory(this.history, config);
         return structuredClone(history);
@@ -441,7 +435,7 @@ function generateCompletionConfig(config?: LlaminateConfig, stream: boolean = fa
  */
 function validateConfig(config: LlaminateConfig): void {
     if (!validate.config(config)) {
-        throw new Error(`Invalid configuration: ${ajv.errorsText(validate.config.errors)}`);
+        throw new Error(`The \`config\` provided to Llaminate was not a valid configuration.\n\n${ajv.errorsText(validate.config.errors)}`);
     }
 }
 
@@ -573,6 +567,21 @@ async function applyQuirks(body: Record<string, any>, config: LlaminateConfig): 
                             media_type: mime
                         };
                         delete content.image_url;
+                        delete content.document_url;
+                }
+
+
+                /**
+                 * Google doesn't support the "document_url" content type, so
+                 * if the quirk is set we transform any content with the
+                 * document_url" type into an "image_url" (which seemingly works).
+                 */
+                if (content.type === "document_url" && config.quirks?.attachments?.document_url === "image_url") {
+                        content.type = "image_url";
+                        content.image_url = {
+                            type: "url",
+                            url: content.document_url
+                        };
                         delete content.document_url;
                 }
 
@@ -740,7 +749,7 @@ function mergeToolsDeltas(existing: any[], incoming: any[] = []): any[] {
                     name: "",
                     arguments: ""
                 },
-                id: ""
+                id: "",
             }
             merged.push(found);
         }
@@ -748,6 +757,12 @@ function mergeToolsDeltas(existing: any[], incoming: any[] = []): any[] {
         found.function.name += delta.function?.name || "";
         found.function.arguments += delta.function?.arguments || "";
         found.id += delta.id || "";
+
+        // Merge any extra_content properties (used by Google)
+        // but don't include for other APIs that don't support, which may throw an error
+        if (delta.extra_content) {
+            found.extra_content = { ...found.extra_content, ...delta.extra_content };
+        }
     });
     return merged;
 }
@@ -792,7 +807,7 @@ async function handleTools(role: ROLE, calls: any, context: LlaminateContext): P
                     });
                 }
             } else {
-                throw new Error(`Tool ${call.function.name} not found.`);
+                throw new Error(`The LLM response included a tool call for a tool that isn't defined in the Llaminate configuration (${call.function.name}).`);
             }
         };
 
@@ -837,7 +852,7 @@ function prepareMessageWindow(prompt: string | Message[], config: LlaminateConfi
     let messages = [];
     if (Array.isArray(prompt)) messages = getWindowFromHistory(prompt, config); // Set history to the initial messages if an array is provided
     else if (typeof prompt === "string") messages = getWindowFromHistory(this.history.concat({ role: ROLE.USER, content: prompt } as Message), config);
-    else throw new Error("Prompt must be a string or an array of messages.");
+    else throw new Error(`The \`prompt\` provided to Llaminate was not a string or an array of messages.`);
 
     // If attachments are provided in the config, append them to the content of the last message
     if (config.attachments && config.attachments.length > 0) {
@@ -927,11 +942,11 @@ function validateResponse(message:string, config: LlaminateConfig):any {
 
         const schema = ajv.compile(config.schema);
         const valid:any = schema(obj);
-        if (!valid) throw(schema.errors);
+        if (!valid) throw new Error(`The LLM response did not conform to the \`schema\` provided in the Llaminate configuration.\n\n${ajv.errorsText(schema.errors)}`);
 
         return JSON.stringify(obj);
     } else if (message) return message;
-    else throw new Error("Response from LLM is empty.");
+    else throw new Error("The LLM response was empty.");
 }
 
 /**
@@ -945,13 +960,14 @@ function serialize(obj: any): string {
         return JSON.stringify(obj);
     } catch (error) {
         try {
-            // Handle non-serializable objects
+            // Handle non-serializable objects by trying to convert them to strings, if they have a toString method
             if (obj && typeof obj.toString === "function") {
                 const str = obj.toString();
                 if (typeof str === "string") return JSON.stringify(str);
             }
         } catch (error) { /* meh */ }
 
+        // This will be handled by the caller and returned as an error message in the tool response
         throw error;
     }
 }
@@ -973,10 +989,6 @@ function uuid_v4(): string {
  * @returns The deeply frozen object.
  */
 function deepFreeze(obj: any): any {
-    if (typeof obj !== "object") {
-        throw new Error("Only Objects can be frozen.");
-    }
-
     const props = Object.getOwnPropertyNames(obj);
     for (const name of props) {
         const value = obj[name];
@@ -998,7 +1010,7 @@ function sanatiseJSON(json: string): string {
         JSON.parse(match); // try to parse the JSON to ensure it's valid
         return match;
     } catch (error) {
-        throw new Error(`Invalid JSON response: ${json}`);
+        throw new Error(`The LLM response could not be parsed as JSON.\n\n${json}`);
     }
 }
 
@@ -1022,6 +1034,7 @@ function getQuirks(config: LlaminateConfig): LlaminateQuirks {
 
     return {
         attachments: {
+            document_url: isGoogle ? "image_url" : undefined,
             source: isAnthropic, // Whether to use the "source" stynax for attachements, required by Anthropic's API, or to use the standard content array with "image_url", "document_url", or "file" types for other APIs
             file: isOpenAI // Whether to support the "file" content type with base64 data, as used by OpenAI's API
         },
@@ -1050,16 +1063,15 @@ function getQuirks(config: LlaminateConfig): LlaminateQuirks {
  * @throws Will throw an error if the fetch request fails or if there is an issue reading the file.
  */
 async function fetchUrlAsBase64(url: string): Promise<string> {
-    const response = await fetch(url, {
-        headers: { "User-Agent": USER_AGENT }
-    });
-    if (!response.ok) {
-        throw new Error(`Failed to fetch file: ${response.statusText}`);
-    }
-    const arrayBuffer = await response.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString("base64");
-    const contentType = response.headers.get("content-type") || "application/octet-stream";
-    return `data:${contentType};base64,${base64}`;
+    const response = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
+
+    if (!response.ok) { throw new Error(`HTTP status ${response.status} from ${url}.\n\n${await response.text()}`); }
+
+    const buffer = await response.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString("base64");
+
+    const type = response.headers.get("content-type") || "application/octet-stream";
+    return `data:${type};base64,${base64}`;
 }
 
 /**

@@ -74,6 +74,7 @@
                 "attachments": {
                     "type": "object",
                     "properties": {
+                        "document_url": { "type": "string", "enum": ["image_url"] },
                         "file": { "type": "boolean" },
                         "source": { "type": "boolean" }
                     },
