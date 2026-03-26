@@ -29,6 +29,6 @@ tmp
 # Temporary development files
 scratch.*
 
-# Unusual: Ignore the Jest config file in the root because the test script
-# generates a dynamic one at each test run.
+# Unusual: Ignore jest.config.json file because the test script generates a
+# dynamic one at each test run.
 jest.config.json
