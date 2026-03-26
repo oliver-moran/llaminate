@@ -8,7 +8,7 @@
     "prebuild": "node scripts/prebuild.js",
     "build": "bash scripts/build.sh",
     "docs": "bash scripts/docs.sh",
-    "prepare": "npm run build",
+    "prepare": "bash scripts/prepare.sh",
     "pretest": "node scripts/pretest.js",
     "scratch": "node --env-file=.env ./tests/scratch.js",
     "test": "jest --i --config=./tests/jest.config.json"
