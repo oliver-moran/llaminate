@@ -3,6 +3,10 @@
   "version": "0.1.2",
   "description": "A simple but powerful library that abstracts LLM chat completions, providing chat history, tokens tracking and tools interfaces.",
   "repository": "github:oliver-moran/llaminate",
+  "homepage": "https://oliver-moran.github.io/llaminate/",
+  "bugs": {
+    "url": "https://github.com/oliver-moran/llaminate/issues"
+  },
   "main": "dist/llaminate.min.js",
   "types": "dist/llaminate.d.ts",
   "scripts": {
