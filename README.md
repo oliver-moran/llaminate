@@ -32,6 +32,7 @@ Streaming is made easy:
 const stream = await llaminate.stream(
   "How much wood would a woodchuck chuck if a woodchuck could chuck wood?"
 );
+
 for await (const sum of stream) {
   console.log(sum);
 }
