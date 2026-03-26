@@ -1,8 +1,11 @@
-![Llamina, the Llaminate mascot](./assets/llaminate-256.webp)
+![Llamina, the Llaminate mascot](https://oliver-moran.github.io/llaminate/assets/llaminate-256.webp)
 
-Llaminate is a simple but powerful library designed to abstract-away differences between chat completion APIs across LLM providers.
+Llaminate is a simple but powerful library designed to abstract-away differences
+between chat completion APIs across LLM providers.
 
-It's robust at managing prompts, message histories, token usage and integrating tools. Ideal for quickly building applications to interact with LLM services, that may need to switch between them.
+It's robust at managing prompts, message histories, token usage and integrating
+tools. Ideal for quickly building applications to interact with LLM services,
+that may need to switch between them.
 
 ```bash
 npm -i llaminate
@@ -87,7 +90,8 @@ console.log(snarky.tokens.total);
 
 ## Documentation
 
-Full [documentation is on the GitHub pages](Llaminate.html) website.
+Full [documentation is available](https://oliver-moran.github.io/llaminate/) on
+the GitHub pages website for the probject.
 
 ---
 
