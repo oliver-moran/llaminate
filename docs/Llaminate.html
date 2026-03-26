@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>: Class: Llaminate</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Class: Llaminate</h1>
+
+    
+
+
+
+
+<section>
+
+<header>
+    
+        <h2><span class="attribs"><span class="type-signature"></span></span>Llaminate<span class="signature">(config)</span><span class="type-signature"></span></h2>
+        
+            <div class="class-description">Represents the Llaminate service for managing and interacting with AI models.</div>
+        
+    
+</header>
+
+<article>
+    <div class="container-overview">
+    
+        
+
+    
+    <h2>Constructor</h2>
+    
+
+    
+    <h4 class="name" id="Llaminate"><span class="type-signature"></span>new Llaminate<span class="signature">(config)</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Constructs a new instance of the Llaminate class.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>config</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="LlaminateConfig.html">LlaminateConfig</a></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">The configuration options for the
+Llaminate instance.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Throws:</h5>
+
+        
+
+    <div class="param-desc">
+    
+        Will throw an error if the provided configuration is invalid.
+    
+    </div>
+
+
+    
+
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>const mistral = new Llaminate({
+  endpoint: Llaminate.MISTRAL,
+  key: "12345-abcde-67890-fghij-klm",
+  model: "mistral-small-latest",
+  system: ["You are a sarcastic assistant who answers very briefly and bluntly."]
+  rpm: 720
+});</code></pre>
+
+
+
+    
+    </div>
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Classes</h3>
+
+        <dl>
+            <dt><a href="Llaminate.html">Llaminate</a></dt>
+            <dd></dd>
+        </dl>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Methods</h3>
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="clear"><span class="type-signature"></span>clear<span class="signature">()</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Resets the chat history. This does not affect the configuration or any
+other settings.
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    void
+</div>
+
+
+
+    
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>// EXAMPLE: Populating and then clearing the history
+mistral.complete("What's your name?"); // "John"
+mistral.complete("How do you spell that?"); // "J-O-H-N"
+mistral.clear();
+mistral.complete("Tell me again?"); // "Tell you what again?"</code></pre>
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="complete"><span class="type-signature">(async) </span>complete<span class="signature">(prompt, config<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="LlaminateResponse.html">LlaminateResponse</a>>}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Sends a prompt to the LLM service and returns a chat completion response.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>prompt</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+|
+
+<span class="param-type">Array.&lt;<a href="LlaminateMessage.html">LlaminateMessage</a>></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The input prompt or
+messages to send to the service.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>config</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="LlaminateConfig.html">LlaminateConfig</a></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">Optional configuration settings for
+this completion.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Throws:</h5>
+
+        
+
+    <div class="param-desc">
+    
+        Will throw an error if the prompt is invalid, the response is
+unsuccessful, or if the response does not conform to the expected format.
+    
+    </div>
+
+
+    
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    A promise resolving to a
+LlaminateResponse from the service.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;<a href="LlaminateResponse.html">LlaminateResponse</a>></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+    <h5>Examples</h5>
+    
+    <pre class="prettyprint"><code>// EXAMPLE 1: Simple prompt with default configuration
+const response = await mistral.complete("What's the capital of France?");
+console.log(response.message); // "Paris"</code></pre>
+
+    <pre class="prettyprint"><code>// EXAMPLE 2: System messages set through configuration
+const response = await mistral.complete("What's the capital of France?",
+  { system: [
+    "You are a children's geography tutor.",
+    "Always reply as if you are explaining to a child."
+  ] } );</code></pre>
+
+    <pre class="prettyprint"><code>// EXAMPLE 3: An image attachment (supported depends on LLM model)
+const response = await mistral.complete(
+  "Generate a helpful HTML `alt` tag for this image.", {
+  attachments: [ { type: Llaminate.JPEG, url: "https://example.com/image.jpg" } ]
+});</code></pre>
+
+    <pre class="prettyprint"><code>// EXAMPLE 4: Prompt with a pre-rolled conversation history
+const history = [
+  { role: "user", content: "What's a good name for a houseplant?" },
+  { role: "assistant", content: "How about Fernie Sanders?" },
+  { role: "user", content: "Nice. Any other suggestions?" },
+  { role: "assistant", content: "How about Leaf Erickson?" }
+];
+const prompt = "Great. What could be its nickname?";
+const response = await mistral.complete(prompt, { history });</code></pre>
+
+    <pre class="prettyprint"><code>// EXAMPLE 5: Rolling the conversation history into the prompt
+const messages = history.concat({ role: "user", content: prompt });
+const response = await mistral.complete(messages);</code></pre>
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="export"><span class="type-signature"></span>export<span class="signature">(window<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {Array.&lt;<a href="LlaminateMessage.html">LlaminateMessage</a>>}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Exports the chat history. By default, this exports the entire chat
+history. If a window is specified, only the most recent messages are
+returned. The window counts back each of the most recent user message, it
+includes assistant responses to these, and any system prompts set in the
+global configuration.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>window</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The length of the window to retrieve.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    An array of chat history messages.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Array.&lt;<a href="LlaminateMessage.html">LlaminateMessage</a>></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+    <h5>Examples</h5>
+    
+    <pre class="prettyprint"><code>// EXAMPLE 1: Exporting the entire history of messages
+const history = mistral.export();
+localStorage.setItem('mistral-history', JSON.stringify(history));</code></pre>
+
+    <pre class="prettyprint"><code>// EXAMPLE 2: Getting a window of recent messages
+// Returns the last 5 user-assistant interactions and all system prompts
+const history = mistral.export(5);
+console.log(history.length);
+// e.g. 14 = 5 user messages + 5 assistant replies (one that included a
+// tool call) + 2 system prompts</code></pre>
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="stream"><span class="type-signature">(async, generator) </span>stream<span class="signature">(prompt, config<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {<a href="LlaminateResponse.html">LlaminateResponse</a>}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Sends a prompt to the LLM service and streams the response.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>prompt</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+|
+
+<span class="param-type">Array.&lt;<a href="LlaminateMessage.html">LlaminateMessage</a>></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The input prompt or
+messages to send to the service.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>config</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="LlaminateConfig.html">LlaminateConfig</a></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">Optional configuration settings for
+this completion.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Throws:</h5>
+
+        
+
+    <div class="param-desc">
+    
+        Will throw an error if the prompt is invalid, the response is
+unsuccessful, or if the response does not conform to the expected format.
+    
+    </div>
+
+
+    
+
+
+
+
+<h5>Yields:</h5>
+
+        
+<div class="param-desc">
+    An asynchronous generator yielding
+responses from the service.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type"><a href="LlaminateResponse.html">LlaminateResponse</a></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+    <h5>Examples</h5>
+    
+    <pre class="prettyprint"><code>// EXAMPLE 1: Streaming the response to a simple prompt
+const stream = mistral.stream("Tell me a joke and explain it.");
+for await (const response of stream) {
+  console.log(response.message);
+}</code></pre>
+
+    <pre class="prettyprint"><code>// EXAMPLE 2: Streaming a response with a structured output
+const stream = mistral.stream("Tell me a joke and explain it.", {
+  schema: {
+    type: "object",
+    properties: {
+      joke: {
+        type: "string",
+        description: "Your response to the user's query."
+      },
+      explanation: {
+        type: "string",
+        description: "Your internal thoughts about the user's query."
+      },
+    },
+    required: ["joke", "explanation"],
+    additionalProperties: false,
+  }
+});
+for await (const response of stream) {
+  // Initially streams as a string until the JSON schema can be validated
+  console.log(response.message);
+  console.log(response.message?.joke);
+  console.log(response.message?.explanation);
+}</code></pre>
+
+
+
+        
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+</div>
+
+<nav>
+    <h4><a href="index.html">README.md</a></h4><h3>Modules</h3><ul><li><a href="Llaminate.module_Endpoints.html">Endpoints</a></li><li><a href="Llaminate.module_Llaminate.html">Llaminate</a></li><li><a href="Llaminate.module_MimeTypes.html">MimeTypes</a></li></ul><h3>Classes</h3><ul><li><a href="Llaminate.html">Llaminate</a></li></ul><h3>Interfaces</h3><ul><li><a href="LlaminateConfig.html">LlaminateConfig</a></li><li><a href="LlaminateMessage.html">LlaminateMessage</a></li><li><a href="LlaminateResponse.html">LlaminateResponse</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc"> 4.0.5</a> on Thu Mar 26 2026 03:45:06 GMT+0000 (Greenwich Mean Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

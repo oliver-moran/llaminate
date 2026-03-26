@@ -24,6 +24,7 @@ npm-debug.log*
 # Temporary files
 *.tmp
 *.swp
+tmp
 
 # Temporary development files
 scratch.*

@@ -1,0 +1,22 @@
+{
+    "plugins": [],
+    "recurseDepth": 10,
+    "source": {
+        "include": [ "./tmp/llaminate.js", "./src/llaminate.types.js" ]
+    },
+    "opts": {
+        "destination": "./docs/"
+    },
+    "sourceType": "module",
+    "tags": {
+        "allowUnknownTags": true,
+        "dictionaries": ["jsdoc"]
+    },
+    "templates": {
+        "cleverLinks": true,
+        "monospaceLinks": true,
+        "default": {
+            "outputSourceFiles": false
+        }
+    }
+}

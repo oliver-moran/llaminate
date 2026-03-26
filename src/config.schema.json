@@ -18,6 +18,21 @@
             "type": "array",
             "items": { "type": "string" }
         },
+        "history": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "role": { "type": "string", "enum": ["user", "assistant", "system", "tool", "developer"] },
+                    "content": {},
+                    "name": { "type": "string" },
+                    "tool_calls": { "type": "array" },
+                    "tool_call_id": { "type": "string" }
+                },
+                "required": ["role", "content"],
+                "additionalProperties": true
+            }
+        },
         "attachments": {
             "type": "array",
             "items": {

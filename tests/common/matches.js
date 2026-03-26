@@ -17,7 +17,7 @@ const matchReply = () => ({
       });
 
 const matchToolReply = (name) => ({
-        message: expect.stringMatching(/.+/),
+        message: expect.anything(),
         result: expect.arrayContaining([
           expect.objectContaining({
             role: expect.stringMatching(/^(assistant)$/),

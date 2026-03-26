@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>: Interface: LlaminateConfig</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Interface: LlaminateConfig</h1>
+
+    
+
+
+
+
+<section>
+
+<header>
+    
+        <h2>LlaminateConfig</h2>
+        
+    
+</header>
+
+<article>
+    <div class="container-overview">
+    
+        
+            <div class="description">Represents the configuration options for the Llaminate service.</div>
+        
+
+        
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>endpoint</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The endpoint URL for the LLM service to use.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>key</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The API key for the LLM service.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>model</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The model name to use with the LLM service.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>attachments</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;{type: string, url: string}></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">Attachments to include with the request.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>fetch</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">A custom fetch function to use for making API
+requests to the LLM service.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>headers</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Object</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">Additional headers to include in the API
+requests to the LLM service.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>history</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;<a href="LlaminateMessage.html">LlaminateMessage</a>></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">An array of messages to include as
+part of the conversation history for the request.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Object</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">Additional options to include in the request
+body sent to the LLM service.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>rpm</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The maximum number of requests per minute (RPM) to
+allow when making API requests.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>schema</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Object</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">An optional JSON schema to specify the expected
+structure of the response.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>system</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;string></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">System prompts to include with every request.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>tools</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;{function: {name: string, description: string, parameters: Object, strict: boolean}, handler: function()}></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">Tool definitions to include with the request.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>window</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The number of recent user messages to include in
+the context window for each request.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-default">Default Value:</dt>
+    <dd class="tag-default"><ul class="dummy">
+            <li>12</li>
+        </ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+        
+            <h3>Examples</h3>
+            
+    <pre class="prettyprint"><code>{ endpoint: Llaminate.MISTRAL }</code></pre>
+
+    <pre class="prettyprint"><code>{ endpoint: "https://api.example.com/v1/chat/completions" }</code></pre>
+
+    <pre class="prettyprint"><code>{ key: "12345-abcde-67890-fghij-klm" }</code></pre>
+
+    <pre class="prettyprint"><code>{ model: "mistral-small-latest" }</code></pre>
+
+    <pre class="prettyprint"><code>{ attachments: [
+  {
+    type: Llaminate.JPEG,
+    url: "https://example.com/image.jpg"
+  },
+  {
+    type: Llaminate.PDF,
+    url: "data:application/pdf;base64,JVBERi0xLjcKJcfs..."
+  }
+] }</code></pre>
+
+    <pre class="prettyprint"><code>{ fetch: async (url, options) => {
+  // Example fetch using Node's https module
+  return new Promise((resolve, reject) => {
+    const request = https.request(url, options, (response) => {
+      let data = "";
+      response.on("data", (chunk) => data += chunk);
+      response.on("end", () => resolve({
+        ok: response.statusCode >= 200 &amp;&amp; response.statusCode &lt; 300,
+        status: response.statusCode,
+        json: async () => JSON.parse(data),
+        text: async () => data,
+      }));
+    });
+    request.on("error", reject);
+    if (options.body) request.write(options.body);
+    request.end();
+  });
+} }</code></pre>
+
+    <pre class="prettyprint"><code>{ headers: {
+  "OpenAI-Organization": "org-12345-abcde-67890",
+  "OpenAI-Project": "project-abcde-12345-fghij",
+} }</code></pre>
+
+    <pre class="prettyprint"><code>{ history: [
+  { role: "user", content: "What is the capital of France?" },
+  { role: "assistant", content: "The capital of France is Paris." },
+] }</code></pre>
+
+    <pre class="prettyprint"><code>{ options: {
+  temperature: 0.7,
+  max_tokens: 150,
+} }</code></pre>
+
+    <pre class="prettyprint"><code>{ rpm: 720 }</code></pre>
+
+    <pre class="prettyprint"><code>{ schema: {
+  type: "object",
+  properties: {
+    reply: {
+        type: "string",
+        description: "Your response to the user's query."
+    },
+    thoughts: {
+      type: "string",
+      description: "Your internal thoughts about the user's query."
+    },
+  },
+  required: ["reply", "thoughts"],
+  additionalProperties: false,
+} }</code></pre>
+
+    <pre class="prettyprint"><code>{ system: [
+  "You are an assistant who answers questions about movies.",
+  "You are always excited about movie trivia and love sharing fun facts.",
+] }</code></pre>
+
+    <pre class="prettyprint"><code>{ tools: [
+  {
+    function: {
+      name: "get_current_time",
+      description: "Returns the current time in ISO format.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      }
+    },
+    handler: async () => {
+      return new Date().toISOString();
+    }
+  }
+] }</code></pre>
+
+    <pre class="prettyprint"><code>{ window: 5 }</code></pre>
+
+        
+    
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+</div>
+
+<nav>
+    <h4><a href="index.html">README.md</a></h4><h3>Modules</h3><ul><li><a href="Llaminate.module_Endpoints.html">Endpoints</a></li><li><a href="Llaminate.module_Llaminate.html">Llaminate</a></li><li><a href="Llaminate.module_MimeTypes.html">MimeTypes</a></li></ul><h3>Classes</h3><ul><li><a href="Llaminate.html">Llaminate</a></li></ul><h3>Interfaces</h3><ul><li><a href="LlaminateConfig.html">LlaminateConfig</a></li><li><a href="LlaminateMessage.html">LlaminateMessage</a></li><li><a href="LlaminateResponse.html">LlaminateResponse</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc"> 4.0.5</a> on Thu Mar 26 2026 03:45:06 GMT+0000 (Greenwich Mean Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

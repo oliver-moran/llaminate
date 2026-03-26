@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>: Interface: LlaminateMessage</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Interface: LlaminateMessage</h1>
+
+    
+
+
+
+
+<section>
+
+<header>
+    
+        <h2>LlaminateMessage</h2>
+        
+    
+</header>
+
+<article>
+    <div class="container-overview">
+    
+        
+            <div class="description">Represents a message in the Llaminate service.</div>
+        
+
+        
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>role</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"assistant"</span>
+|
+
+<span class="param-type">"developer"</span>
+|
+
+<span class="param-type">"system"</span>
+|
+
+<span class="param-type">"user"</span>
+|
+
+<span class="param-type">"tool"</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The
+role of the message sender.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>content</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+|
+
+<span class="param-type">any</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The content of the message, which can be a
+string or any JSON-serializable object.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The name of the tool used in tool responses.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>tool_call_id</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The ID linking tool messages to calls.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>tool_calls</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;{type: string, function: {name: string, arguments: string}, id: string}></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The tool calls associated with assistant messages.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+        
+    
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+</div>
+
+<nav>
+    <h4><a href="index.html">README.md</a></h4><h3>Modules</h3><ul><li><a href="Llaminate.module_Endpoints.html">Endpoints</a></li><li><a href="Llaminate.module_Llaminate.html">Llaminate</a></li><li><a href="Llaminate.module_MimeTypes.html">MimeTypes</a></li></ul><h3>Classes</h3><ul><li><a href="Llaminate.html">Llaminate</a></li></ul><h3>Interfaces</h3><ul><li><a href="LlaminateConfig.html">LlaminateConfig</a></li><li><a href="LlaminateMessage.html">LlaminateMessage</a></li><li><a href="LlaminateResponse.html">LlaminateResponse</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc"> 4.0.5</a> on Thu Mar 26 2026 03:45:06 GMT+0000 (Greenwich Mean Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

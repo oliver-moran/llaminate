@@ -1,7 +1,6 @@
 const Ajv = require("ajv");
 
-function toMatchSchema(json, schema) {
-    const obj = JSON.parse(json);
+function toMatchSchema(obj, schema) {
     const ajv = new Ajv();
     const validate = ajv.compile(schema);
 
