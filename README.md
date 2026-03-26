@@ -8,7 +8,7 @@ tools. Ideal for quickly building applications to interact with LLM services,
 that may need to switch between them.
 
 ```bash
-npm -i llaminate
+npm i llaminate
 ```
 
 ```typescript
