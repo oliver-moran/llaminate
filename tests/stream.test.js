@@ -18,10 +18,20 @@ describe("Streaming", () => {
             });
 
             if (i > 0) {
+                // The final chunk may contain special end characters, so we
+                // remove those before comparing to the previous chunk.
+                const clean = chunks[i - 1].message.replace(/[\x1E\x04]+$/, "");
+
                 // Each chunk's message should contain the previous chunk's message
-                expect(chunks[i].message).toContain(chunks[i - 1].message);
+                expect(chunks[i].message).toContain(clean);
                 // All chunks should have the same UUID
                 expect(chunks[i].uuid).toBe(chunks[0].uuid);
+            }
+
+            if (i == chunks.length - 2) {
+                // The second to last chunk should contain the final message
+                // with special characters.
+                expect(chunks[i].message).toMatch(/.+(\x1E\x04)$/);
             }
 
             if (i < chunks.length - 1) {
