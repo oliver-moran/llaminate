@@ -114,6 +114,7 @@ export class Llaminate {
 
     /**
      * @property {string} Llaminate.GIF MIME type for GIF images (`image/gif`).
+     * @property {string} Llaminate.IMAGE MIME type for unknown images (`image/*`).
      * @property {string} Llaminate.JPEG MIME type for JPEG images (`image/jpeg`).
      * @property {string} Llaminate.PDF MIME type for PDF files (`application/pdf`).
      * @property {string} Llaminate.PNG MIME type for PNG images (`image/png`).
@@ -127,6 +128,7 @@ export class Llaminate {
      * });
      */
     public static readonly PDF = "application/pdf";
+    public static readonly IMAGE = "image/*";
     public static readonly JPEG = "image/jpeg";
     public static readonly PNG = "image/png";
     public static readonly GIF = "image/gif";
