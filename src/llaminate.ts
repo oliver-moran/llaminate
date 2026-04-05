@@ -73,6 +73,9 @@ const ROLES = [
     ROLE.TOOL
 ];
 
+const MAX_ATTACHMENTS = 8; // Maximum attachments allowed in the context window
+const MAX_RECURSIONS = 5; // Maximum recursion depth processing responses
+
 /**
  * @classdesc Represents the Llaminate service for managing and interacting with AI models.
  */
@@ -134,6 +137,48 @@ export class Llaminate {
     public static readonly GOOGLE = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
     public static readonly DEEPSEEK = "https://api.deepseek.com/chat/completions";
 
+    /**
+     * The configuration options for the Llaminate instance.
+     * 
+     * Most of these options can be overridden on a per-request basis by passing
+     * a configuration object to the `complete` or `stream` methods. Exceptions
+     * are:
+     * 
+     * - `endpoint` and `key`, which are fixed for the instance and cannot be
+     *    overridden on a per-request basis.
+     * - `system`, for which request-level system messages will be appended to
+     *    the instance-level system messages rather than replacing them.
+     * - `rpm`, which is used to initialize the rate limiter and cannot be
+     *    overridden on a per-request basis.
+     * @property {LlaminateConfig} Llaminate.config The configuration options
+     * for the Llaminate instance.
+     * @memberof Llaminate
+     * @readonly
+     */
+    public readonly config: LlaminateConfig = {
+        endpoint: null,
+        key: null,
+        model: null,
+        attachments: [],
+        headers: {},
+        limits: {
+            recursions: MAX_RECURSIONS,
+            attachments: MAX_ATTACHMENTS,
+        },
+        options: {
+            parallel_tool_calls: true,
+            response_format: { type: "text" }
+        },
+        rpm: Infinity,
+        system: [],
+        tools: [],
+        window: 12,
+        fetch: globalThis.fetch.bind(globalThis),
+        handler: async (name: string, args: Record<string, any>): Promise<any> => {
+            throw new Error(`No \`handler\` method provided for \`${name}\` was provided in the Llaminate configuration.`)
+        },
+    };
+
     // PRIVATE PROPERTIES
 
     // The history of messages exchanged with the service.
@@ -141,27 +186,6 @@ export class Llaminate {
 
     // The rate limiter instance for managing API request rates.
     private readonly limiter: RateLimiter;
-
-    // The configuration options for the Llaminate service.
-    private readonly config: LlaminateConfig = {
-        endpoint: null,
-        key: null,
-        model: null,
-        tools: [],
-        system: [],
-        attachments: [],
-        window: 12,
-        headers: {},
-        options: {
-            parallel_tool_calls: true,
-            response_format: { type: "text" }
-        },
-        handler: async (name: string, args: Record<string, any>): Promise<any> => {
-            throw new Error(`No \`handler\` method provided for \`${name}\` was provided in the Llaminate configuration.`)
-        },
-        fetch: globalThis.fetch.bind(globalThis),
-        rpm: Infinity,
-    };
 
     // CONSTRUCTOR
 
@@ -182,38 +206,62 @@ export class Llaminate {
     constructor(config: LlaminateConfig) {
         validateConfig(config);
 
-        this.config.endpoint = config.endpoint;
-        this.config.key = config.key;
-        this.config.model = config.model;
-
-        this.config.schema = config.schema;
-
-        this.history = this.config.history || this.history;
+        this.history = config.history || this.history;
         // once the history is set from the config, we delete it to prevent it
         // it being accidentially duplicated or merged with the internal
         // history in future calls to complete or stream.
         delete config.history;
 
-        this.config.tools = config.tools || this.config.tools;
-        this.config.system = config.system || this.config.system;
-        this.config.window = config.window || this.config.window;
-        this.config.headers = config.headers || this.config.headers;
-        this.config.options = {
-            ...this.config.options,
-            ...config.options,
-        };
-        this.config.handler = config.handler || this.config.handler;
-        this.config.fetch = config.fetch || this.config.fetch;
-
-        const quirks = getQuirks(this.config);
-        this.config.quirks = { ...quirks, ...config.quirks };
-
         // Attachments are not allowed in the constructor
-        delete this.config.attachments;
+        delete config.attachments;
 
+        // Merge the provided config with the default config
+        this.config = {
+            ...this.config,
+            ...config,
+
+            // Limits need to be merged separately rather than overwritten with
+            // a reference to prevent accidential mutations
+            limits: {
+                ...this.config.limits,
+                ...config.limits,
+            },
+
+            // Options, likewise, need to be merged separately rather than
+            // overwritten
+            options: {
+                ...this.config.options,
+                ...config.options,
+                max_tokens: config.limits?.tokens || this.config.limits?.tokens || undefined
+            },
+
+            // Ensure the endpoint, key and model are always taken from the
+            // instance config
+            endpoint: config.endpoint,
+            key: config.key,
+            model: config.model,
+        }
+
+        // Quirks also need to established after the main config is merged, as
+        // they depend on other config values to determine quirks settings
+        this.config.quirks = {
+            ...getQuirks(this.config),
+            ...config.quirks
+        };
+
+        // Freeze the config to prevent accidental mutations.
         deepFreeze(this.config);
 
-        this.limiter = new RateLimiter(config.rpm);
+        // Initialize the rate limiter with the specified RPM
+        this.limiter = new RateLimiter(this.config.rpm);
+
+        // Bind public methods to the instance to ensure correct `this` context
+        // when called externally (e.g., when passed as callbacks or used in
+        // different contexts).
+        this.complete = this.complete.bind(this);
+        this.stream = this.stream.bind(this);
+        this.clear = this.clear.bind(this);
+        this.export = this.export.bind(this);
     }
 
     // PUBLIC METHODS
@@ -266,9 +314,14 @@ export class Llaminate {
         const result: LlaminateMessage[] = [];
         const subtotal: Tokens = { input: 0, output: 0, total: 0 };
 
+        let depth = 0; // Track recursion depth to prevent infinite loops
+
         return await _complete.call(this, messages);
 
         async function _complete(): Promise<LlaminateResponse> {
+            if (depth++ > _config.limits?.recursions)
+                throw new Error(`Maximum recursion depth of ${_config.limits?.recursions} exceeded while processing response from LLM. This is likely due to a problem with tool calls.`);
+
             const response = await this.limiter.queue(
                 () => sendMessages([...messages, ...result], _config) );
             if (!response.ok)
@@ -282,10 +335,11 @@ export class Llaminate {
             subtotal.output += tokens.output || 0;
             subtotal.total += tokens.total || subtotal.input + subtotal.output || 0;
 
-            const calls = message.tool_calls || transformAnthropicToolCalls(completion?.content) || [];
             const role = message.role;
+            const content = message?.content || message?.text;
+            const calls = message.tool_calls || transformAnthropicToolCalls(completion?.content) || [];
 
-            const recursed = await handleTools.call(this, role, calls, {
+            const recursed = await handleTools.call(this, role, content, calls, {
                 messages, result, subtotal, config: _config, recurse: _complete
             });
             if (recursed) return recursed;
@@ -293,10 +347,8 @@ export class Llaminate {
                 const content = validateResponse(
                     message?.content || message?.text || "", _config
                 );
-                result.push({
-                    role: role || ROLE.ASSISTANT,
-                    content: content
-                });
+                const role = message?.role || ROLE.ASSISTANT;
+                result.push({ role, content });
                 updateHistory.call(this, prompt, result);
                 return generateOutputObject(content, result, subtotal, uuid_v4(), _config);
             }
@@ -304,7 +356,12 @@ export class Llaminate {
 	}
 
     /**
-     * Sends a prompt to the LLM service and streams the response.
+     * Sends a prompt to the LLM service and streams the response. A streamed
+     * response may include more that one message, depending on the response
+     * from the service. Individual messages will be terminated with a special
+     * character (ASCII RS, \x1E) to signal the end of the message. The final
+     * message in the stream will be terminated with a special character (ASCII
+     * EOT, \x04) to signal the end of the stream.
      * @param { string | LlaminateMessage[] } prompt The input prompt or
      * messages to send to the service.
      * @param { LlaminateConfig } [config] Optional configuration settings for
@@ -351,10 +408,15 @@ export class Llaminate {
         const result: LlaminateMessage[] = [];
         const subtotal: Tokens = { input: 0, output: 0, total: 0 };
 
+        let depth = 0; // Track recursion depth to prevent infinite loops
+
         const stream = await _stream.call(this, messages);
         for await (const result of stream) yield result;
 
         async function* _stream(): AsyncGenerator<LlaminateResponse> {
+            if (depth++ > _config.limits?.recursions)
+                throw new Error(`Maximum recursion depth of ${_config.limits?.recursions} exceeded while processing response from LLM. This is likely due to a problem with tool calls.`);
+
             const response = await this.limiter.queue(() => sendMessages(
                 [...messages, ...result], _config)
             );
@@ -368,7 +430,7 @@ export class Llaminate {
             const decoder = new TextDecoder('utf-8');
 
             let buffer = "";
-            let content = "";
+            let stream = "";
             let role = "" as any;
             let tokens: Tokens = { input: 0, output: 0, total: 0 };
             let tools = [];
@@ -377,7 +439,15 @@ export class Llaminate {
 
             while (true) {
                 const { value, done } = await reader.read();
-                if (done) break;
+                if (done) {
+                    // signal the end of the stream message with a special
+                    // character (e.g., ASCII RS, \x1E) that won't appear in
+                    // normal text, so that consumers can differentiate between
+                    // the end of the stream and a message.
+                    stream += "\x1E";
+                    yield generateOutputObject(stream, null, null, uuid);
+                    break;
+                }
 
                 buffer += decoder.decode(value, { stream: true });
 
@@ -396,7 +466,7 @@ export class Llaminate {
                             const delta = completion.choices?.[0]?.delta || completion.delta;
 
                             // Append the new content to the message
-                            content += delta?.content || delta?.text || "";
+                            stream += delta?.content || delta?.text || "";
                             // Update role, unless it is already complete
                             if (!ROLES.includes(role)) role += delta?.role || "";
                             // Merge tool calls (some LLM send these as deltas)
@@ -407,7 +477,7 @@ export class Llaminate {
                             tokens.output = usage.output || tokens.output;
                             tokens.total = usage.total || tokens.total;
 
-                            yield generateOutputObject(content, null, null, uuid);
+                            yield generateOutputObject(stream, null, null, uuid);
                         } catch (error) { /* meh */ }
                     }
                 }
@@ -417,16 +487,20 @@ export class Llaminate {
             subtotal.output += tokens.output || 0;
             subtotal.total += tokens.total || subtotal.input + subtotal.output || 0;
 
-            const recursed = await handleTools.call(this, role, tools, {
+            // Remove the signal characters from message content will be
+            // processed in the same way as non-streaming responses.
+            const clean = stream.replace(/[\x1E\x04]+$/, "");
+
+            const recursed = await handleTools.call(this, role, clean, tools, {
                 messages, result, subtotal, config: _config, recurse: _stream
             });
+
             if (recursed) for await (const result of recursed) yield result;
             else {
-                content = validateResponse(content, _config);
-                result.push({
-                    role: role || ROLE.ASSISTANT,
-                    content: content
-                });
+                yield generateOutputObject(`${stream}\x04`, null, null, uuid);                
+                const content = validateResponse(clean, _config);
+                role = role || ROLE.ASSISTANT;
+                result.push({ role, content });
                 updateHistory.call(this, prompt, result);
                 yield generateOutputObject(content, result, subtotal, uuid, _config);
             }
@@ -500,11 +574,22 @@ function generateCompletionConfig(config?: LlaminateConfig, stream: boolean = fa
     const _config = {
         ...this.config,
         ...config,
+
+        // Ensure the endpoint and key are always taken from the instance config,
+        // as these are fixed per instance and should not be overridden on a
+        // per-request basis.
+        endpoint: this.config.endpoint,
+        key: this.config.key,
+
         // Combine system messages from instance config and provided config
         system: this.config.system.concat(config?.system || []),
+
+        // Populate the options by merging the instance options with any
+        // provided overrides, and set the streaming options as appropriate.
         options: {
             ...this.config?.options,
             ...config?.options,
+            max_tokens: config?.limits?.tokens || this.config.limits?.tokens || undefined,
             stream: stream,
             stream_options: stream ? {
                 include_usage: true // required by OpenAI
@@ -559,6 +644,21 @@ function validateConfig(config: LlaminateConfig): void {
  * @private
  */
 async function sendMessages(messages: LlaminateMessage[], config: LlaminateConfig): Promise<Response> {
+    // If there are attachments in the messages, we need to ensure that we don't
+    // exceed the maximum number of attachments allowed in the context window.
+    let images = 0;
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const message = messages[i] as LlaminateMessage;
+        if (Array.isArray(message.content)) {
+            message.content = message.content.filter((content) => {
+                if (content?.type == "attachment") {
+                    return (++images <= config.limits?.attachments);
+                }
+                return true;
+            });
+        }
+    };
+
     const headers = {
         "Authorization": `Bearer ${config.key}`,
         "X-Api-Key": `${config.key}`,
@@ -578,7 +678,7 @@ async function sendMessages(messages: LlaminateMessage[], config: LlaminateConfi
         messages,
     }, config);
 
-    const json = JSON.stringify(body, null, 2);
+    const json = JSON.stringify(body);
 
     return config.fetch(config.endpoint, {
         method: "POST",
@@ -646,6 +746,20 @@ async function applyQuirks(body: Record<string, any>, config: LlaminateConfig): 
         if (Array.isArray(message.content)) {
 
             for (const content of message?.content || []) {
+
+                /**
+                 * First convert the "attachment" content type used by Llaminate
+                 * into the common "image_url", or "document_url" used by
+                 * Mistral. We'll apply further transformations to these below
+                 * based on quirks.
+                 */
+                if (content.type === "attachment") {
+                    const type = content.attachment?.type.split("/")[0];
+                    content.type = (type === "image") ? "image_url" : "document_url";
+                    if (content.type === "image_url") content.image_url = { url: content.attachment?.url };
+                    else content.document_url = content.attachment?.url;
+                    delete content.attachment;
+                }
 
                 /**
                  * Anthropic's API requires attachments to be sent in a unique
@@ -910,15 +1024,18 @@ function mergeToolsDeltas(existing: any[], incoming: any[] = []): Partial<Llamin
 /**
  * Handles tool calls discovered in the LLM response.
  * @param role The role of the entity calling the tools (typically "assistant").
+ * @param content The content of the message that included the tool calls, which
+ * can occasionally include the LLM's reasoning for calling the tool.
  * @param calls The tool calls to handle in this function.
  * @param context The completion context for handling the tools.
  * @returns A promise resolving to a LlaminateResponse after handling tools.
  * @private
  */
-async function handleTools(role: ROLE, calls: any, context: Context): Promise<LlaminateResponse> {
+async function handleTools(role: ROLE, content: string, calls: any, context: Context): Promise<LlaminateResponse> {
     if (calls.length > 0) {
         context.result.push({
             role: role || ROLE.ASSISTANT,
+            content: content ? [{ type: "text", text: content }] : null,
             tool_calls: calls.map(call => {
                 const cleansed = cleanse(call);
                 // Ensure type is set to "function" for backward compatibility
@@ -937,10 +1054,45 @@ async function handleTools(role: ROLE, calls: any, context: Context): Promise<Ll
                     // the result onto the context for the next recursion.
                     const args = JSON.parse(call.function.arguments);
                     const response = await (tool.handler || context.config.handler || noop).call(globalThis, call.function.name, args);
+
+                    // Allow the tools response to include attachments by checking for an "@attachments" property
+                    const attachments = [];
+                    if (response?.["@attachments"] && Array.isArray(response["@attachments"])) {
+                        response["@attachments"].forEach((attachment: any) => {
+                            if (attachment.url) attachments.push({
+                                type: "attachment",
+                                attachment: {
+                                    url: attachment.url,
+                                    type: (typeof attachment.type === "string" ? attachment.type : undefined)
+                                }
+                            });
+                        });
+                        delete response["@attachments"]; // Remove the attachment from the response content
+                    }
+                    
+                    const system = [];
+                    
+                    if (response?.["@system"] && Array.isArray(response["@system"])) {
+                        response["@system"].forEach((message: string | any, i: number) => {
+                            if (typeof message === "string") system.push({ role: ROLE.SYSTEM, content: message });
+                            else if (message.type === "text" && typeof message.text === "string") system.push({ role: ROLE.SYSTEM, content: message.text });
+                        });
+                        delete response["@system"]; // Remove the system messages from the response content
+                    }
+
+                    if (system.length > 0) {
+                        // Find the first non-system message
+                        const i = context.messages.findIndex(message => message.role !== ROLE.SYSTEM);
+                        // And inject the system messages just before that
+                        context.messages.splice(i, 0, ...system);
+                    }
+
+                    const json = serialize(response);
+
                     context.result.push({
                         role: ROLE.TOOL,
                         name: tool.function.name,
-                        content: serialize(response),
+                        content: attachments.length > 0 ? [ { type: "text", text: json }, ...attachments ] : json,
                         tool_call_id: call.id,
                     });
                 } catch (error) {
@@ -1024,13 +1176,14 @@ function prepareMessageWindow(prompt: string | LlaminateMessage[], config: Llami
         messages[messages.length - 1].content = [
             { type: "text", text: messages[messages.length - 1].content },
             ...config.attachments.map((attachment) => {
-                return attachment.type?.startsWith("image") ? {
-                    type: "image_url",
-                    image_url: { url: attachment.url }
-                } : {
-                    type: "document_url",
-                    document_url: attachment.url
-                };
+                const type = attachment.type || getTypeFromDataUri(attachment.url) || "application/octet-stream";
+                return {
+                    type: "attachment",
+                    attachment: {
+                        type: type,
+                        url: attachment.url
+                    }
+                }
             })
         ]
     }
@@ -1323,4 +1476,15 @@ function isHttpUrl(url: string): boolean {
  */
 function isBase64DataUri(uri: string): boolean {
     return /^data:.*;base64,/.test(uri);
+}
+
+/**
+ * Extracts the media type from a base64 data URI.
+ * @param uri The base64 data URI to extract the media type from.
+ * @returns The media type if it can be extracted, or null if the URI is not a valid base64 data URI.
+ * @private
+ */
+function getTypeFromDataUri(uri: string): string | null {
+    const match = uri.match(/^data:(.*);base64,/);
+    return match ? match[1] : null;
 }

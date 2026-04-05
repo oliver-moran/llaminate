@@ -29,7 +29,10 @@
                     "tool_calls": { "type": "array" },
                     "tool_call_id": { "type": "string" }
                 },
-                "required": ["role", "content"],
+                "oneOf": [
+                    { "required": ["role", "content"] },
+                    { "required": ["role", "tool_calls", "tool_call_id"] }
+                ],
                 "additionalProperties": true
             }
         },
@@ -82,6 +85,15 @@
         "rpm": {
             "type": "integer",
             "minimum": 1
+        },
+        "limits": {
+            "type": "object",
+            "properties": {
+                "tokens": { "type": "integer", "minimum": 1 },
+                "recursions": { "type": "integer", "minimum": 0 },
+                "attachments": { "type": "integer", "minimum": 0 }
+            },
+            "additionalProperties": true
         },
         "quirks": {
             "type": "object",

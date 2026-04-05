@@ -3,19 +3,24 @@
 interface LlaminateConfig {
     endpoint: string;
     key: string;
-    model?: string;
+    model: string;
+    attachments?: URLAttachment[];
+    headers?: Record<string, string>;
+    history?: LlaminateMessage[];
+    limits?: {
+        attachments?: number;
+        recursions?: number;
+        tokens?: number;
+    };
+    options?: Record<string, any>;
+    quirks?: LlaminateQuirks;
+    rpm?: number;
     schema?: Record<string, any>;
     system?: string[];
     tools?: Tool[];
-    attachments?: URLAttachment[];
     window?: number;
-    headers?: Record<string, string>;
-    options?: Record<string, any>;
-    rpm?: number;
-    history?: LlaminateMessage[];
     fetch?: (endpoint: string, options: Record<string, any>) => Promise<Response>;
     handler?: (name: string, args: Record<string, any>) => Promise<any>;
-    quirks?: LlaminateQuirks;
 }
 
 interface LlaminateResponse {
@@ -27,7 +32,7 @@ interface LlaminateResponse {
 
 interface LlaminateMessage {
     role: "assistant" | "developer" | "system" | "user" | "tool";
-    content?: string | any; // Content can be a string or any JSON-serializable object, especially for tool messages
+    content?: string | (TextContent | URLAttachment)[]; // Content can be a string, TextContent, or any JSON-serializable object, especially for tool messages
     name?: string; // For tool messages
     tool_calls?: ToolCall[]; // For assistant messages with tool calls
     tool_call_id?: string; // For tool messages to link back to the call
@@ -59,6 +64,16 @@ interface LlaminateQuirks {
 
 // PRIVATE INTERFACES (USED INTERNALLY)
 
+interface TextContent {
+    type: "text";
+    text: string;
+}
+
+interface URLAttachment {
+    type: string;
+    url: string;
+}
+
 interface Context {
     messages: LlaminateMessage[];
     result: LlaminateMessage[];
@@ -85,11 +100,6 @@ interface ToolCall {
         arguments: Record<string, any>;
     }
     id: string;
-}
-
-interface URLAttachment {
-    type: string;
-    url: string;
 }
 
 interface Tokens {
