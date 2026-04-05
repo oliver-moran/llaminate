@@ -24,7 +24,8 @@
  *   url: string
  * }>} [attachments] Attachments to include with the request. A tool call can
  * also return attachments in its response using {"@attachments": [...]}, which
- * will be included in the context for subsequent messages.
+ * will be included in the context for subsequent messages, if supported by the
+ * LLM service.
  * @example
  * { attachments: [
  *   {
