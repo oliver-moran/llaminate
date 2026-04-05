@@ -59,6 +59,7 @@ interface LlaminateQuirks {
     tools?: {
         json_schema?: boolean;
         json_object?: boolean;
+        content?: ("string" | "array")[];
     };
 }
 

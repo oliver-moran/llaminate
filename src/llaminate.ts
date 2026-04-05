@@ -748,38 +748,12 @@ async function applyQuirks(body: Record<string, any>, config: LlaminateConfig): 
 
     for (const message of modified?.messages || []) {
 
-        /**
-         * Antropic don't have the concept of a "tool" role for tool responses,
-         * instead they require tool responses to be sent with the "user" role
-         * and a specific content format, so we transform any messages with the
-         * "tool" role into the format they require if the quirk is set.
-         */
-        if (message.role === Llaminate.TOOL && config.quirks?.role?.tool === false) {
-            message.role = Llaminate.USER;
-            message.content = [{
-                "type": "tool_result",
-                "tool_use_id": message.tool_call_id,
-                "content": message.content
-            }];
-
-            delete message.name;
-            delete message.tool_call_id;
-        }
-
-        /**
-         * We also need to reverse that process to transform tool calls from
-         * the assistant into the format that Anthropic requires.
-         */
-        if (message.role === Llaminate.ASSISTANT && message.tool_calls
-            && config.quirks?.role?.tool === false) {
-            message.content = message.tool_calls?.map((call) => ({
-                    "type": "tool_use",
-                    "id": call.id,
-                    "name": call.function.name,
-                    "input": JSON.parse(call.function.arguments),
-            }));
-
-            delete message.tool_calls;
+        // DeepSeek can only process tool content as strings, so we revert
+        // back to the original string content if the content if we have
+        // transformed tool content into an array.
+        if (message.role === Llaminate.TOOL && Array.isArray(message.content)
+            && !config.quirks?.tools?.content?.includes("array")) {
+                message.content = message.content[0].text || "";
         }
 
         // Content might be a string, so check before trying to iterate over it.
@@ -878,6 +852,40 @@ async function applyQuirks(body: Record<string, any>, config: LlaminateConfig): 
                 }
 
             }
+        }
+
+        /**
+         * Antropic don't have the concept of a "tool" role for tool responses,
+         * instead they require tool responses to be sent with the "user" role
+         * and a specific content format, so we transform any messages with the
+         * "tool" role into the format they require if the quirk is set.
+         */
+        if (message.role === Llaminate.TOOL && config.quirks?.role?.tool === false) {
+            message.role = Llaminate.USER;
+            message.content = [{
+                "type": "tool_result",
+                "tool_use_id": message.tool_call_id,
+                "content": message.content
+            }];
+
+            delete message.name;
+            delete message.tool_call_id;
+        }
+
+        /**
+         * We also need to reverse that process to transform tool calls from
+         * the assistant into the format that Anthropic requires.
+         */
+        if (message.role === Llaminate.ASSISTANT && message.tool_calls
+            && config.quirks?.role?.tool === false) {
+            message.content = message.tool_calls?.map((call) => ({
+                    "type": "tool_use",
+                    "id": call.id,
+                    "name": call.function.name,
+                    "input": JSON.parse(call.function.arguments),
+            }));
+
+            delete message.tool_calls;
         }
     }
 
@@ -1461,7 +1469,9 @@ function getQuirks(config: LlaminateConfig): LlaminateQuirks {
             // output, so disable both modes of structured output and rely on
             // text output with instructions in the system prompt instead.
             json_schema: !isMistral,
-            json_object: !isMistral
+            json_object: !isMistral,
+            // DeepSeek doesn't support tool content responses as arrays
+            content: isDeepSeek ? ["string"] : ["string", "array"]
         },
     };
 }

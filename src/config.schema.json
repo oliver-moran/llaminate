@@ -124,7 +124,8 @@
                     "type": "object",
                     "properties": {
                         "json_schema": { "type": "boolean" },
-                        "json_object": { "type": "boolean" }
+                        "json_object": { "type": "boolean" },
+                        "content": { "type": "array", "items": { "type": "string", "enum": ["string", "array"] } }
                     },
                     "additionalProperties": true
                 }
