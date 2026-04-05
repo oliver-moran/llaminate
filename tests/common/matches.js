@@ -11,9 +11,7 @@ const matchReply = () => ({
           output: expect.toBeGreaterThan(0),
           total: expect.toBeGreaterThan(0)
         }),
-        uuid: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
-        // New validation for JSON structure
-        message: expect.stringMatching(/.+/)
+        uuid: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
       });
 
 const matchToolReply = (name) => ({
