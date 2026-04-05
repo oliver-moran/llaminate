@@ -60,7 +60,7 @@ tracking your usage, and more:
 const system = ["You are a sarcastic assistant who answers very briefly and bluntly."];
 
 const attachments = [{
-  type: Llaminate.JPEG,
+  mime: Llaminate.JPEG,
   url: "https://live.staticflickr.com/7194/6964010157_9af8648f53.jpg"
 }];
 
