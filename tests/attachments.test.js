@@ -30,7 +30,7 @@ const base64_documents = [{
 
 const attachment_tools = [{
     function: {
-        name: "get_and_image",
+        name: "get_an_image",
         description: "Returns an image.",
         parameters: {
             type: "object",
@@ -81,7 +81,7 @@ describe.maybe("Attachments", () => {
     });
 
     test("given a tool that returns an image, includes the image in the tool response", async () => {
-        await llaminate.complete("What is in this image?", { tools: attachment_tools });
+        await llaminate.complete("Get an image and describe it.", { tools: attachment_tools });
 
         // The tool response should be the fourth message in the history:
         // 0: system,
@@ -91,6 +91,7 @@ describe.maybe("Attachments", () => {
         const history = await llaminate.export();
         const tool = history[3];
 
+        expect(tool).toBeDefined();
         expect(tool.role).toBe(Llaminate.TOOL);
         expect(tool.content[1].type).toBe(Llaminate.ATTACHMENT);
         expect(tool.content[1].attachment).toMatchObject({
