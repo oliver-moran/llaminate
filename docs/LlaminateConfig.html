@@ -184,39 +184,9 @@
 
             
 
-            <td class="description last">Attachments to include with the request.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>fetch</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">function</span>
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last">A custom fetch function to use for making API
-requests to the LLM service.</td>
+            <td class="description last">Attachments to include with the request. A tool call can
+also return attachments in its response using {"@attachments": [...]}, which
+will be included in the context for subsequent messages.</td>
         </tr>
 
     
@@ -281,6 +251,38 @@ requests to the LLM service.</td>
 
             <td class="description last">An array of messages to include as
 part of the conversation history for the request.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>limits</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Object.&lt;{tokens: number, attachments: number, recursions: number}></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">An object specifying various limits to enforce when
+processing requests and responses.</td>
         </tr>
 
     
@@ -407,7 +409,9 @@ structure of the response.</td>
 
             
 
-            <td class="description last">System prompts to include with every request.</td>
+            <td class="description last">System prompts to include with every request. A
+tool call can also return system prompts in its response using {"@system": 
+[...]}, which will be included in the context for that completion.</td>
         </tr>
 
     
@@ -474,6 +478,38 @@ the context window for each request.</td>
         </tr>
 
     
+
+        <tr>
+            
+                <td class="name"><code>fetch</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">A custom fetch function to use for making API
+requests to the LLM service.</td>
+        </tr>
+
+    
     </tbody>
 </table>
 
@@ -507,7 +543,24 @@ the context window for each request.</td>
     
     <dt class="tag-default">Default Value:</dt>
     <dd class="tag-default"><ul class="dummy">
-            <li>12</li>
+            <li>{
+  attachments: [],
+  headers: {},
+  history: [],
+  limits: {
+    attachments: 8,
+    recursions: 5
+  },
+  options: {},
+  rpm: Infinity,
+  system: [],
+  tools: [],
+  window: 12,
+  fetch: fetch,
+  handler: async (name, args) => {
+    throw new Error(`No \`handler\` method provided for \`${name}\` was provided in the Llaminate configuration.`)
+  }
+}</li>
         </ul></dd>
     
 
@@ -543,25 +596,6 @@ the context window for each request.</td>
   }
 ] }</code></pre>
 
-    <pre class="prettyprint"><code>{ fetch: async (url, options) => {
-  // Example fetch using Node's https module
-  return new Promise((resolve, reject) => {
-    const request = https.request(url, options, (response) => {
-      let data = "";
-      response.on("data", (chunk) => data += chunk);
-      response.on("end", () => resolve({
-        ok: response.statusCode >= 200 &amp;&amp; response.statusCode &lt; 300,
-        status: response.statusCode,
-        json: async () => JSON.parse(data),
-        text: async () => data,
-      }));
-    });
-    request.on("error", reject);
-    if (options.body) request.write(options.body);
-    request.end();
-  });
-} }</code></pre>
-
     <pre class="prettyprint"><code>{ headers: {
   "OpenAI-Organization": "org-12345-abcde-67890",
   "OpenAI-Project": "project-abcde-12345-fghij",
@@ -571,6 +605,12 @@ the context window for each request.</td>
   { role: "user", content: "What is the capital of France?" },
   { role: "assistant", content: "The capital of France is Paris." },
 ] }</code></pre>
+
+    <pre class="prettyprint"><code>{ limits: {
+  tokens: 1000,
+  attachments: 5,
+  recursions: 3,
+} }</code></pre>
 
     <pre class="prettyprint"><code>{ options: {
   temperature: 0.7,
@@ -618,6 +658,29 @@ the context window for each request.</td>
 ] }</code></pre>
 
     <pre class="prettyprint"><code>{ window: 5 }</code></pre>
+
+    <pre class="prettyprint"><code>{ fetch: async (url, options) => {
+  // Example fetch using Node's https module
+  return new Promise((resolve, reject) => {
+    const request = https.request(url, options, (response) => {
+      let data = "";
+      response.on("data", (chunk) => data += chunk);
+      response.on("end", () => resolve({
+        ok: response.statusCode >= 200 &amp;&amp; response.statusCode &lt; 300,
+        status: response.statusCode,
+        json: async () => JSON.parse(data),
+        text: async () => data,
+      }));
+    });
+    request.on("error", reject);
+    if (options.body) request.write(options.body);
+    request.end();
+  });
+} }</code></pre>
+
+    <pre class="prettyprint"><code>{ handler: async (name, args) => {
+  console.log(`Tool called: ${name} with arguments:`, args);
+} }</code></pre>
 
         
     

@@ -218,6 +218,131 @@ Llaminate instance.</td>
     
 
     
+        <h3 class="subsection-title">Members</h3>
+
+        
+            
+<h4 class="name" id=".this.config"><span class="type-signature">(static, readonly) </span>this.config<span class="type-signature"></span></h4>
+
+
+
+
+<div class="description">
+    The configuration options for the Llaminate instance.
+
+Most of these options can be overridden on a per-request basis by passing
+a configuration object to the `complete` or `stream` methods. Exceptions
+are:
+
+- `endpoint` and `key`, which are fixed for the instance and cannot be
+   overridden on a per-request basis.
+- `system`, for which request-level system messages will be appended to
+   the instance-level system messages rather than replacing them.
+- `rpm`, which is used to initialize the rate limiter and cannot be
+   overridden on a per-request basis.
+</div>
+
+
+
+
+
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>Llaminate.config</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="LlaminateConfig.html">LlaminateConfig</a></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">The configuration options
+for the Llaminate instance.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+        
+    
 
     
         <h3 class="subsection-title">Methods</h3>
@@ -773,7 +898,12 @@ console.log(history.length);
 
 
 <div class="description">
-    Sends a prompt to the LLM service and streams the response.
+    Sends a prompt to the LLM service and streams the response. A streamed
+response may include more that one message, depending on the response
+from the service. Individual messages will be terminated with a special
+character (ASCII RS, \x1E) to signal the end of the message. The final
+message in the stream will be terminated with a special character (ASCII
+EOT, \x04) to signal the end of the stream.
 </div>
 
 
