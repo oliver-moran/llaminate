@@ -198,8 +198,8 @@
  * role of the message sender.
  * @property {string|Array<{
  *   type: "text",
- *   content: string
- * } | { type: string, url: string }>} [content] The content of the message, which can be a
+ *   text: string
+ * } | { type: "attachment", attachment: { mime: string, url: string } }>} [content] The content of the message, which can be a
  * string or an array of content objects (either text or URL attachments).
  * @property {string} [name] The name of the tool used in tool responses.
  * @property {string} [tool_call_id] The ID linking tool messages to calls.

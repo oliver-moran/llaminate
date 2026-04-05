@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>: Module: Endpoints</title>
+    <title>: Module: Types</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -17,7 +17,7 @@
 
 <div id="main">
 
-    <h1 class="page-title">Module: Endpoints</h1>
+    <h1 class="page-title">Module: Types</h1>
 
     
 
@@ -34,8 +34,7 @@
     <div class="container-overview">
     
         
-            <div class="description">Static properties for common LLM service endpoints, which
-can be used in the Llaminate configuration.</div>
+            <div class="description">Static content types for messages and attachments.</div>
         
 
         
@@ -67,7 +66,7 @@ can be used in the Llaminate configuration.</div>
 
         <tr>
             
-                <td class="name"><code>Llaminate.ANTHROPIC</code></td>
+                <td class="name"><code>Llaminate.TEXT</code></td>
             
 
             <td class="type">
@@ -83,14 +82,14 @@ can be used in the Llaminate configuration.</div>
 
             
 
-            <td class="description last">Anthropic completions API endpoint.</td>
+            <td class="description last">The type for text content.</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>Llaminate.DEEPSEEK</code></td>
+                <td class="name"><code>Llaminate.ATTACHMENT</code></td>
             
 
             <td class="type">
@@ -106,14 +105,14 @@ can be used in the Llaminate configuration.</div>
 
             
 
-            <td class="description last">Deepseek completions API endpoint.</td>
+            <td class="description last">The type for attachment content.</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>Llaminate.GOOGLE</code></td>
+                <td class="name"><code>Llaminate.JSON</code></td>
             
 
             <td class="type">
@@ -129,53 +128,7 @@ can be used in the Llaminate configuration.</div>
 
             
 
-            <td class="description last">Google completions API endpoint.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>Llaminate.MISTRAL</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">Mistral completions API endpoint.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>Llaminate.OPENAI</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">OpenAI completions API endpoint.</td>
+            <td class="description last">A convenience type for JSON content (actually identical to Llaminate.TEXT).</td>
         </tr>
 
     
@@ -222,13 +175,25 @@ can be used in the Llaminate configuration.</div>
 
 
         
-            <h3>Example</h3>
+            <h3>Examples</h3>
             
-    <pre class="prettyprint"><code>const mistral = new Llaminate({
-  endpoint: Llaminate.MISTRAL,
-  key: "12345-abcde-67890-fghij-klm",
-  model: "mistral-small-latest"
-});</code></pre>
+    <pre class="prettyprint"><code>const content = [{
+  type: Llaminate.TEXT,
+  text: "Hello, world!"
+}];</code></pre>
+
+    <pre class="prettyprint"><code>const content = [{
+  type: Llaminate.ATTACHMENT,
+  attachment: {
+    mime: Llaminate.JPEG,
+    url: "https://example.com/image.jpg"
+  }
+}];</code></pre>
+
+    <pre class="prettyprint"><code>const content = [{
+  type: Llaminate.JSON,
+  text: "{ 'name': 'Alice', 'location': 'Wonderland' }"
+}];</code></pre>
 
         
     

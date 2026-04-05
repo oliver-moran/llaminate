@@ -31,8 +31,8 @@ interface LlaminateResponse {
 }
 
 interface LlaminateMessage {
-    role: "assistant" | "developer" | "system" | "user" | "tool";
-    content?: string | (TextContent | URLAttachment)[]; // Content can be a string, TextContent, or any JSON-serializable object, especially for tool messages
+    role: Role;
+    content?: string | (TextContent | AttachmentContent)[]; // Content can be a string, TextContent, or any JSON-serializable object, especially for tool messages
     name?: string; // For tool messages
     tool_calls?: ToolCall[]; // For assistant messages with tool calls
     tool_call_id?: string; // For tool messages to link back to the call
@@ -64,13 +64,20 @@ interface LlaminateQuirks {
 
 // PRIVATE INTERFACES (USED INTERNALLY)
 
+type Role = "assistant" | "developer" | "system" | "user" | "tool";
+
 interface TextContent {
     type: "text";
     text: string;
 }
 
+interface AttachmentContent {
+    type: "attachment";
+    attachment: URLAttachment;
+}
+
 interface URLAttachment {
-    type: string;
+    mime: string;
     url: string;
 }
 
