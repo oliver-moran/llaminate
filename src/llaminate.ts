@@ -1470,8 +1470,8 @@ function getQuirks(config: LlaminateConfig): LlaminateQuirks {
             // text output with instructions in the system prompt instead.
             json_schema: !isMistral,
             json_object: !isMistral,
-            // DeepSeek doesn't support tool content responses as arrays
-            content: isDeepSeek ? ["string"] : ["string", "array"]
+            // DeepSeek and Google don't support image content in tools
+            content: (isDeepSeek || isGoogle) ? ["string"] : ["string", "array"]
         },
     };
 }
