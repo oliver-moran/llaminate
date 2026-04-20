@@ -322,6 +322,38 @@ body sent to the LLM service.</td>
 
         <tr>
             
+                <td class="name"><code>retries</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The maximum number of retries to attempt for
+failed API requests before giving up.</td>
+        </tr>
+
+    
+
+        <tr>
+            
                 <td class="name"><code>rpm</code></td>
             
 
@@ -617,6 +649,8 @@ requests to the LLM service.</td>
   temperature: 0.7,
   max_tokens: 150,
 } }</code></pre>
+
+    <pre class="prettyprint"><code>{ retries: 3 }</code></pre>
 
     <pre class="prettyprint"><code>{ rpm: 720 }</code></pre>
 

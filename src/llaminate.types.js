@@ -70,6 +70,9 @@
  *   temperature: 0.7,
  *   max_tokens: 150,
  * } }
+ * @property {number} [retries] The maximum number of retries to attempt for
+ * failed API requests before giving up.
+ * @example { retries: 3 }
  * @property {number} [rpm] - The maximum number of requests per minute (RPM) to
  * allow when making API requests.
  * @example { rpm: 720 }

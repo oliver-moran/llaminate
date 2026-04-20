@@ -15,10 +15,9 @@ export type {
     LlaminateResponse,
     LlaminateMessage } from "./llaminate.types.js";
 
-/* @ignore */
-const os = require("os");
+import * as os from "node:os";
 import Ajv from "ajv";
-import { Buffer } from "buffer";
+import { Buffer } from "node:buffer";
 
 // @ts-ignore This will be replaced with a minified version in the buildprocess
 import { RateLimiter } from "./ratelimiter.min.js";
@@ -52,6 +51,7 @@ const USER_AGENT = `Llaminate/${LLAMINATE_VERSION} (https://github.com/oliver-mo
 
 const MAX_ATTACHMENTS = 8; // Maximum attachments allowed in the context window
 const MAX_RECURSIONS = 5; // Maximum recursion depth processing responses
+const MAX_RETRIES = 3; // Maximum number of retries for failed requests
 
 /**
  * @classdesc Represents the Llaminate service for managing and interacting with AI models.
@@ -200,6 +200,7 @@ export class Llaminate {
             parallel_tool_calls: true,
             response_format: { type: "text" }
         },
+        retries: MAX_RETRIES,
         rpm: Infinity,
         system: [],
         tools: [],
@@ -346,8 +347,9 @@ export class Llaminate {
         const subtotal: Tokens = { input: 0, output: 0, total: 0 };
 
         let depth = 0; // Track recursion depth to prevent infinite loops
+        let retries = 0; // Track the number of retries attempted
 
-        return await _complete.call(this, messages);
+        return await _complete.call(this);
 
         async function _complete(): Promise<LlaminateResponse> {
             if (depth++ > _config.limits?.recursions)
@@ -355,8 +357,12 @@ export class Llaminate {
 
             const response = await this.limiter.queue(
                 () => sendMessages([...messages, ...result], _config) );
-            if (!response.ok)
-                throw new Error(`HTTP status ${response.status} from ${_config.endpoint}.\n\n${await response.text()}`);
+
+            if (!response.ok) {
+                if (retries++ < (_config.retries || 0)) {
+                    return await _complete.call(this);
+                } else throw new Error(`HTTP status ${response.status} from ${_config.endpoint}.\n\n${await response.text()}`);
+            }
 
             const completion = await response.json();
             const message = completion?.choices?.[0]?.message || completion?.content?.[0] || null;
@@ -440,8 +446,9 @@ export class Llaminate {
         const subtotal: Tokens = { input: 0, output: 0, total: 0 };
 
         let depth = 0; // Track recursion depth to prevent infinite loops
+        let retries = 0; // Track the number of retries attempted
 
-        const stream = await _stream.call(this, messages);
+        const stream = await _stream.call(this);
         for await (const result of stream) yield result;
 
         async function* _stream(): AsyncGenerator<LlaminateResponse> {
@@ -452,8 +459,12 @@ export class Llaminate {
                 [...messages, ...result], _config)
             );
 
-            if (!response.ok)
-                throw new Error(`HTTP status ${response.status} from ${_config.endpoint}.\n\n${await response.text()}`);
+            if (!response.ok) {
+                if (retries++ < (_config.retries || 0)) {
+                    return yield* _stream.call(this);
+                } else throw new Error(`HTTP status ${response.status} from ${_config.endpoint}.\n\n${await response.text()}`);
+            }
+
             if (!response.body)
                 throw new Error(`No readable stream from ${_config.endpoint}.\n\n${await response.text()}`);
 
@@ -1081,7 +1092,7 @@ function mergeToolsDeltas(existing: any[], incoming: any[] = []): Partial<Llamin
  * @returns A promise resolving to a LlaminateResponse after handling tools.
  * @private
  */
-async function handleTools(role: Role, content: string, calls: any, context: Context): Promise<LlaminateResponse> {
+async function handleTools(role: Role, content: string, calls: any, context: Context): Promise<LlaminateResponse | AsyncGenerator<LlaminateResponse>> {
     if (calls.length > 0) {
         context.result.push({
             role: role || Llaminate.ASSISTANT,

@@ -14,6 +14,7 @@ interface LlaminateConfig {
     };
     options?: Record<string, any>;
     quirks?: LlaminateQuirks;
+    retries?: number;
     rpm?: number;
     schema?: Record<string, any>;
     system?: string[];
@@ -88,7 +89,7 @@ interface Context {
     tools: Tool[];
     subtotal: Tokens;
     config: LlaminateConfig;
-    recurse: (messages: LlaminateMessage[], subtotal: Tokens) => AsyncGenerator<LlaminateResponse> | Promise<LlaminateResponse>;
+    recurse: () => AsyncGenerator<LlaminateResponse> | Promise<LlaminateResponse>;
 }
 
 interface Tool {
