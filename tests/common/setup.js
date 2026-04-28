@@ -5,7 +5,7 @@ const llaminate = new Llaminate({
   endpoint: process.env.TEST_ENDPOINT,
   key: process.env.TEST_API_KEY,
   model: process.env.TEST_MODEL,
-  system: ["You are a sarcastic assistant who answers very briefly and bluntly."],
+  system: ["You are a diligent and reliable assistant. Follow instructions carefully and use any tools have acess to when needed."],
   rpm: Number(process.env.TEST_RPM)
 });
 

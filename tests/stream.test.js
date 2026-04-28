@@ -68,7 +68,7 @@ describe("Streaming", () => {
     });
 
     test("given a schema, a tool and a relevant question, uses the tool and replies with a stream adhering to the schema", async () => {
-        const stream = await llaminate.stream("What time is it?", { schema, tools });
+        const stream = await llaminate.stream("What time is it? Use the get_current_time to get the current time.", { schema, tools });
 
         const chunks = [];
         for await (const chunk of stream) chunks.push(chunk);
