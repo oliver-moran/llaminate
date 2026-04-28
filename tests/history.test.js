@@ -75,11 +75,27 @@ describe("History", () => {
 
     test("when history is cleared, the history is correct", async () => {
         await llaminate.clear();
+
         const history = await llaminate.export();
         await expect(history.length).toBe(1);
         await expect(history[0]).toMatchObject({
             role: "system",
             content: llaminate.config.system[0]
+        });
+    });
+
+    test("when clearing the history with a new set of messages, those messages become the history", async () => {
+        const messages = [
+            { role: "user", content: "What is the meaning of life?" },
+            { role: "assistant", content: "42. Just kidding. It's whatever you want it to be." }
+        ];
+        await llaminate.clear(messages);
+
+        const history = await llaminate.export();
+
+        await expect(history.length).toBe(3);
+        messages.forEach(async (message, index) => {
+            await expect(history[index + 1]).toMatchObject(message);
         });
     });
 
