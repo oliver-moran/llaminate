@@ -1624,7 +1624,7 @@ function sanatiseJSON(json: string): string {
     try {
         // Extract the JSON object from the string, or default to an empty
         // object if no JSON-like structure is found.
-        const match = json.match(/{.*}/s)?.[0] || "{}";
+        const match = json.match(/\{.*\}|\[.*\]/s)?.[0] || "{}";
         // Try to parse the JSON to ensure it's valid.
         JSON.parse(match);
         return match;
