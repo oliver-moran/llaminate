@@ -1,5 +1,6 @@
 const matchReply = () => ({
         message: expect.stringMatching(/.+/),
+        delta: expect.toBe(null),
         result: expect.arrayContaining([
           expect.objectContaining({
             role: expect.stringMatching(/^(assistant)$/),
@@ -16,6 +17,7 @@ const matchReply = () => ({
 
 const matchToolReply = (name) => ({
         message: expect.anything(),
+        delta: expect.toBe(null),
         result: expect.arrayContaining([
           expect.objectContaining({
             role: expect.stringMatching(/^(assistant)$/),
@@ -50,6 +52,7 @@ const matchToolReply = (name) => ({
 
 const matchSchemaReply = (schema) => ({
         message: expect.toMatchSchema(schema),
+        delta: expect.toBe(null),
         result: expect.arrayContaining([
           expect.objectContaining({
             role: expect.stringMatching(/^(assistant)$/),

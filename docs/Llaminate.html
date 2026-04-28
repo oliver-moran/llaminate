@@ -353,7 +353,239 @@ for the Llaminate instance.</td>
     
 
     
-    <h4 class="name" id="clear"><span class="type-signature"></span>clear<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="chat"><span class="type-signature">(async) </span>chat<span class="signature">(config<span class="signature-attributes">opt</span>, stream<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {Promise.&lt;void>}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Starts an interactive chat session in the command line interface. The
+session can be exited by pressing Ctrl+C. The LLM usage tokens will be
+displayed when the session ends. It's not possible to interrupt an LLM
+response while it is being generated.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+        <th>Default</th>
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>config</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="LlaminateConfig.html">LlaminateConfig</a></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last">Optional configuration settings for
+this chat session. This can be used to override any instance configuration
+settings for the duration of the chat session, except for `endpoint` and
+`key`, which are fixed for the instance and cannot be overridden.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>stream</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    true
+                
+                </td>
+            
+
+            <td class="description last">Whether to stream the responses from the
+service. If `false`, the chat session will wait for the full response to
+be received before printing it to the console. If `true`, the response
+will be streamed to the console as it is received.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    A promise that resolves when the chat session
+ends.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;void></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>// EXAMPLE: Starting a chat session with custom system messages
+await mistral.chat({
+  system: [
+    "You are a helpful assistant who answers in the style of Shakespeare.",
+    "Use flowery language and old English phrasing in your responses."
+  ]
+});</code></pre>
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="clear"><span class="type-signature"></span>clear<span class="signature">(messages<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
     
 
     
@@ -371,6 +603,69 @@ other settings.
 
 
 
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>messages</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;<a href="LlaminateMessage.html">LlaminateMessage</a>></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">Optional array of messages to
+initialize the history with after clearing. If not provided, the history
+will simply be cleared to an empty array.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
 
 
 
@@ -440,13 +735,23 @@ other settings.
 
 
 
-    <h5>Example</h5>
+    <h5>Examples</h5>
     
-    <pre class="prettyprint"><code>// EXAMPLE: Populating and then clearing the history
+    <pre class="prettyprint"><code>// EXAMPLE 1: Populating and then clearing the history
 mistral.complete("What's your name?"); // "John"
 mistral.complete("How do you spell that?"); // "J-O-H-N"
 mistral.clear();
 mistral.complete("Tell me again?"); // "Tell you what again?"</code></pre>
+
+    <pre class="prettyprint"><code>// EXAMPLE 2: Clearing the history and initializing with new messages
+mistral.complete("What's your name?"); // "John"
+mistral.complete("How do you spell that?"); // "J-O-H-N"
+const newHistory = [
+  { role: Llaminate.SYSTEM, content: "You are a cat who can only speak in meows." },
+  { role: Llaminate.USER, content: "What's your name?" }
+];
+mistral.clear(newHistory);
+mistral.complete("Tell me again?"); // "Meow?"</code></pre>
 
 
 

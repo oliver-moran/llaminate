@@ -1,5 +1,5 @@
 const Llaminate = require("../../dist/llaminate.min.js").Llaminate;
-require('../extensions/toMatchSchema.js');
+require('../extensions/expect.js');
 
 const llaminate = new Llaminate({
   endpoint: process.env.TEST_ENDPOINT,

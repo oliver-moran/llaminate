@@ -16,8 +16,10 @@ export type {
     LlaminateMessage } from "./llaminate.types.js";
 
 import * as os from "node:os";
-import Ajv from "ajv";
+import * as readline from "node:readline";
 import { Buffer } from "node:buffer";
+
+import Ajv, { _ } from "ajv";
 
 // @ts-ignore This will be replaced with a minified version in the buildprocess
 import { RateLimiter } from "./ratelimiter.min.js";
@@ -214,7 +216,10 @@ export class Llaminate {
     // PRIVATE PROPERTIES
 
     // The history of messages exchanged with the service.
-    private history: LlaminateMessage[] = [];
+    private readonly history: LlaminateMessage[] = [];
+
+    private readonly input: NodeJS.ReadStream = process.stdin;
+    private readonly output: NodeJS.WriteStream = process.stdout;
 
     // The rate limiter instance for managing API request rates.
     private readonly limiter: RateLimiter;
@@ -243,6 +248,14 @@ export class Llaminate {
         // it being accidentially duplicated or merged with the internal
         // history in future calls to complete or stream.
         delete config.history;
+
+        // Input and output streams can be set in the config, but they are not
+        // validated as part of the main config schema since they are not
+        // serializable, so can't be frozen.
+        this.input = config.input || this.input;
+        this.output = config.output || this.output;
+        delete config.input;
+        delete config.output;
 
         // Attachments are not allowed in the constructor
         delete config.attachments;
@@ -294,6 +307,7 @@ export class Llaminate {
         this.stream = this.stream.bind(this);
         this.clear = this.clear.bind(this);
         this.export = this.export.bind(this);
+        this.chat = this.chat.bind(this);
     }
 
     // PUBLIC METHODS
@@ -387,7 +401,7 @@ export class Llaminate {
                 const role = message?.role || Llaminate.ASSISTANT;
                 result.push({ role, content });
                 updateHistory.call(this, prompt, result);
-                return generateOutputObject(content, result, subtotal, uuid_v4(), _config);
+                return generateOutputObject(content, null, result, subtotal, uuid_v4(), _config);
             }
         }
 	}
@@ -487,7 +501,7 @@ export class Llaminate {
                     // normal text, so that consumers can differentiate between
                     // the end of the stream and a message.
                     stream += "\x1E";
-                    yield generateOutputObject(stream, null, null, uuid);
+                    yield generateOutputObject(stream, "\x1E", null, null, uuid);
                     break;
                 }
 
@@ -508,7 +522,8 @@ export class Llaminate {
                             const delta = completion.choices?.[0]?.delta || completion.delta;
 
                             // Append the new content to the message
-                            stream += delta?.content || delta?.text || "";
+                            const content = delta?.content || delta?.text || "";
+                            stream += content;
                             // Update role, unless it is already complete
                             if (!ROLES.includes(role)) role += delta?.role || "";
                             // Merge tool calls (some LLM send these as deltas)
@@ -519,7 +534,7 @@ export class Llaminate {
                             tokens.output = usage.output || tokens.output;
                             tokens.total = usage.total || tokens.total;
 
-                            yield generateOutputObject(stream, null, null, uuid);
+                            yield generateOutputObject(stream, content, null, null, uuid);
                         } catch (error) { /* meh */ }
                     }
                 }
@@ -539,12 +554,12 @@ export class Llaminate {
 
             if (recursed) for await (const result of recursed) yield result;
             else {
-                yield generateOutputObject(`${stream}\x04`, null, null, uuid);                
+                yield generateOutputObject(`${stream}\x04`, "\x04", null, null, uuid);                
                 const content = validateResponse(clean, _config);
                 role = role || Llaminate.ASSISTANT;
                 result.push({ role, content });
                 updateHistory.call(this, prompt, result);
-                yield generateOutputObject(content, result, subtotal, uuid, _config);
+                yield generateOutputObject(content, null, result, subtotal, uuid, _config);
             }
         }
 	}
@@ -552,16 +567,30 @@ export class Llaminate {
     /**
      * Resets the chat history. This does not affect the configuration or any
      * other settings.
+     * @param { LlaminateMessage[] } [messages] Optional array of messages to
+     * initialize the history with after clearing. If not provided, the history
+     * will simply be cleared to an empty array.
      * @returns void
      * @example
-     * // EXAMPLE: Populating and then clearing the history
+     * // EXAMPLE 1: Populating and then clearing the history
      * mistral.complete("What's your name?"); // "John"
      * mistral.complete("How do you spell that?"); // "J-O-H-N"
      * mistral.clear();
      * mistral.complete("Tell me again?"); // "Tell you what again?"
+     * @example
+     * // EXAMPLE 2: Clearing the history and initializing with new messages
+     * mistral.complete("What's your name?"); // "John"
+     * mistral.complete("How do you spell that?"); // "J-O-H-N"
+     * const newHistory = [
+     *   { role: Llaminate.SYSTEM, content: "You are a cat who can only speak in meows." },
+     *   { role: Llaminate.USER, content: "What's your name?" }
+     * ];
+     * mistral.clear(newHistory);
+     * mistral.complete("Tell me again?"); // "Meow?"
      */
-    clear():void {
-        this.history = [];
+    clear(messages?: LlaminateMessage[]):void {
+        this.history.splice(0, this.history.length);
+        if (messages && Array.isArray(messages)) this.history.push(...messages);
     }
 
     /**
@@ -585,7 +614,7 @@ export class Llaminate {
      * // tool call) + 2 system prompts
      */
     export(window: number = Infinity): LlaminateMessage[] {
-        // in the event of an invalid window value being passed (e.g. negative,
+        // In the event of an invalid window value being passed (e.g. negative,
         // zero, or NaN), set to 1 to return something rather than nothing
         if (window && (isNaN(window) || window < 1)) window = 1;
 
@@ -594,6 +623,187 @@ export class Llaminate {
         return structuredClone(history);
     }
 
+    /**
+     * Starts an interactive chat session in the command line interface. The
+     * session can be exited by pressing Ctrl+C. The LLM usage tokens will be
+     * displayed when the session ends. It's not possible to interrupt an LLM
+     * response while it is being generated.
+     * @param { LlaminateConfig } [config] Optional configuration settings for
+     * this chat session. This can be used to override any instance configuration
+     * settings for the duration of the chat session, except for `endpoint` and
+     * `key`, which are fixed for the instance and cannot be overridden.
+     * @param { boolean } [stream=true] Whether to stream the responses from the
+     * service. If `false`, the chat session will wait for the full response to
+     * be received before printing it to the console. If `true`, the response
+     * will be streamed to the console as it is received.
+     * @returns { Promise<void> } A promise that resolves when the chat session
+     * ends.
+     * @example
+     * // EXAMPLE: Starting a chat session with custom system messages
+     * await mistral.chat({
+     *   system: [
+     *     "You are a helpful assistant who answers in the style of Shakespeare.",
+     *     "Use flowery language and old English phrasing in your responses."
+     *   ]
+     * });
+     */
+    async chat(config?: LlaminateConfig, stream: boolean = true): Promise<void> {
+        // Role names to display in the CLI chat interface.
+        const User = `\x1b[1m${_capitalizeFirstLetter(Llaminate.USER)}:\x1b[22m`;
+        const Assistant = `\x1b[1m${_capitalizeFirstLetter(Llaminate.ASSISTANT)}:\x1b[22m`;
+
+        // Input and output streams can be set in the config, but they are not
+        // valid config options afterwards, so we extract them here and delete
+        // them from the config.
+        const input = config?.input || this.input;
+        const output = config?.output || this.output;
+        delete config?.input;
+        delete config?.output;
+
+        // If the config includes a history, replace the instance history with
+        // it and delete it from the local config.
+        if (config?.history) {
+            this.clear(config?.history);
+            delete config?.history;
+        }
+
+        // Validate the config and generate so as to throw any errors before
+        // starting the chat session.
+        const _config = generateCompletionConfig.call(this, config, true);
+
+        const controller = new AbortController();
+        const { signal } = controller;
+        const line = readline.createInterface({
+            history: this.export().map(message => {
+                if (message.role === Llaminate.USER) {
+                    if (typeof message.content === "string") return message.content;
+                    else if (Array.isArray(message.content)) {
+                        return message.content.map(item => (item.type === "text" ? item.text : null));
+                    }
+                } else return null;
+            }).flat().filter(Boolean).reverse(), // Load the history into the readline interface, with the most recent messages first  
+            input: input,
+            output: output,
+            signal
+        });
+
+        line.on("SIGINT", controller.abort.bind(controller));
+        signal.addEventListener("abort", line.close.bind(line));
+
+        const _output = ((str: string): void => {
+            if (!signal.aborted) output?.write(str);
+        }).bind(this);
+
+        const _clear = ((str?: string): void => {
+            readline.clearLine(output, 0);
+            readline.cursorTo(output, 0);
+            if (str) _output(str);
+        }).bind(this);
+
+        const usage: Tokens = { input: 0, output: 0, total: 0 };
+        const promise = new Promise<void>((exit, error) => {
+            line.addListener("close", exit);
+            line.addListener("error", error);
+        }).then(() => {
+            // Handle any additional logic after the promise resolves, if needed
+            _clear();
+            output?.write(`🎟️\u00A0\u00A0${usage.total} (⬆\u00A0${usage.input} ⬇\u00A0${usage.output})\n`);
+        });
+
+        const _question = (async(q: string) => {
+            if (signal.aborted) return;
+            line.pause();
+
+            const phases = ["\x1b[2m💡\x1b[22m", "💡"];
+            let i = 0;
+            let animation = setInterval(() => {
+                _clear(`${Assistant} ${phases[i++ % phases.length]} `);
+            }, 200);
+
+            if (stream) {
+                const result = await this.stream(q, config);
+
+                let delimit = false;
+                let hangover = "";
+                for await (const chunk of result) {
+                    if (animation && chunk.message !== "") {
+                        // Wait for the first chunk to arrive before clearing
+                        // the animation, sometimes the LLM can respond quickly
+                        // but without sending a chunk
+                        clearInterval(animation);
+                        _clear(`${Assistant} `);
+                        animation = null;
+                    }
+
+                    if (chunk.delta) {
+                        let clean = chunk.delta.replace(/[\x1E\x04]+$/, "");
+
+                        // Ignore any chunks at the start of a new delmit that
+                        // don't contain any actual content. These are likely
+                        // simply new lines.
+                        if (delimit && chunk.delta.trim() === "") continue;
+                        // If are at the start of a new delmit and the chunk
+                        // does contain some content, prepend two new lines
+                        // after triming white space from the start.
+                        else if (delimit) {
+                            clean = `\n\n${clean.trimStart()}`;
+                            delimit = false;
+                        }
+
+                        // If the chunk ends with a delmit character, trim white
+                        // space from the end and set a flag. We won't carry
+                        // any hangover text (e.g. new lines, spaces) from this
+                        // delimited message.
+                        if (chunk.delta.endsWith("\x1E")) {
+                            clean = clean.trimEnd();
+                            delimit = true;
+                            hangover = "";
+                        // If the chunk is entirely white space, add it to the
+                        // hangover. This allows us to preserve it in the case
+                        // that is is useful content (e.g. new lines between
+                        // paragraphs), but throw it away if it's at the end of 
+                        // a delimited message.
+                        } else if (clean.trim() === "") hangover += clean;
+                        // Otherwise, if there is some actual content in the
+                        // chunk, output it along with any hangover, and reset
+                        // the hangover.
+                        else {
+                            const whitesspace = clean.substring(clean.trimEnd().length);
+                            _output(hangover + clean.trimEnd());
+                            hangover = whitesspace;
+                        }
+                    }
+                    if (chunk.tokens) _updateUsage(usage, chunk);
+                }
+                // Make sure to move to a new line in the terminal when the
+                // stream ends.
+                _output("\n");
+            } else {
+                const completion: LlaminateResponse = await this.complete(q, config);
+                clearInterval(animation);
+                _clear(`${Assistant} ${completion.message}\n`);
+                _updateUsage(usage, completion);
+            }
+            
+            if (!signal.aborted) {
+                line.resume();
+                line.question(`${User} `, _question);
+            }
+        }).bind(this);
+
+        line.question(`${User} `, _question);
+        return promise;
+
+        function _capitalizeFirstLetter(str: string): string {
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+
+        function _updateUsage(usage: Tokens, response: LlaminateResponse): void {
+            usage.input += response.tokens?.input || 0;
+            usage.output += response.tokens?.output || 0;
+            usage.total += response.tokens?.total || 0;
+        }
+    }
 }
 
 // Private constants and functions used internally by the Llaminate class, but
@@ -1193,6 +1403,7 @@ function getUsageFromCompletion(completion: any): Tokens {
 /**
  * Generates a LlaminateResponse in response to a finalised completion.
  * @param message The message content.
+ * @param delta The message content as deltas if this is a streaming response.
  * @param result The list of messages generated in this completion, including
  * any tool calls, which is added to the instance history.
  * @param tokens The token usage details.
@@ -1204,12 +1415,13 @@ function getUsageFromCompletion(completion: any): Tokens {
  */
 function generateOutputObject(
     message: string | any,
+    delta: string,
     result: LlaminateMessage[],
     tokens: Tokens,
     uuid: string,
     config?: LlaminateConfig): LlaminateResponse {
-        if (config?.schema) return { message: JSON.parse(message), result, tokens, uuid };
-        else return { message, result, tokens, uuid };
+        if (config?.schema) return { message: JSON.parse(message), delta, result, tokens, uuid };
+        else return { message, delta, result, tokens, uuid };
 }
 
 /**

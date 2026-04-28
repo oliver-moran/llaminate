@@ -258,6 +258,39 @@ part of the conversation history for the request.</td>
 
         <tr>
             
+                <td class="name"><code>input</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Object</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">An object specifying the input and output streams
+to use for the request. By default, Llaminate uses `process.stdin` and
+`process.stdout` for input and output, respectively.</td>
+        </tr>
+
+    
+
+        <tr>
+            
                 <td class="name"><code>limits</code></td>
             
 
@@ -316,6 +349,38 @@ processing requests and responses.</td>
 
             <td class="description last">Additional options to include in the request
 body sent to the LLM service.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>output</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Object</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">An output stream to write responses to. By
+default, Llaminate uses `process.stdout` for output.</td>
         </tr>
 
     
@@ -602,6 +667,13 @@ requests to the LLM service.</td>
     
 
     
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li>input</li>
+        </ul>
+    </dd>
+    
 
     
 </dl>
@@ -638,6 +710,8 @@ requests to the LLM service.</td>
   { role: "user", content: "What is the capital of France?" },
   { role: "assistant", content: "The capital of France is Paris." },
 ] }</code></pre>
+
+    <pre class="prettyprint"><code>{ input: process.stdin, output: process.stdout }</code></pre>
 
     <pre class="prettyprint"><code>{ limits: {
   tokens: 1000,

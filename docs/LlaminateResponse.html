@@ -57,6 +57,8 @@
         <th>Type</th>
 
         
+        <th>Attributes</th>
+        
 
         
 
@@ -85,58 +87,17 @@
             </td>
 
             
+                <td class="attributes">
+                
+
+                
+                </td>
+            
 
             
 
             <td class="description last">The final response message, which can be a
 string or an object conforming to a provided JSON schema.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>result</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">Array.&lt;<a href="LlaminateMessage.html">LlaminateMessage</a>></span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">The array of messages returned as part
-of the response.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>tokens</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">Object.&lt;{input: number, output: number, total: number}></span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">The token usage information for the request.</td>
         </tr>
 
     
@@ -156,10 +117,111 @@ of the response.</td>
             </td>
 
             
+                <td class="attributes">
+                
+
+                
+                </td>
+            
 
             
 
             <td class="description last">The unique identifier for the response.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>delta</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The message content as deltas if this is a
+streaming response.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>result</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;<a href="LlaminateMessage.html">LlaminateMessage</a>></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The array of messages returned as
+part of the response.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>tokens</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Object.&lt;{input: number, output: number, total: number}></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The token usage information for the request.</td>
         </tr>
 
     

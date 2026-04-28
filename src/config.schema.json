@@ -5,18 +5,22 @@
         "endpoint": { "type": "string" },
         "key": { "type": "string" },
         "model": { "type": "string" },
-        "schema": {
-            "type": "object",
-            "properties": {
-                "type": { "type": "string" },
-                "properties": { "type": "object" },
-                "required": { "type": "array", "items": { "type": "string" } }
-            },
-            "additionalProperties": true
-        },
-        "system": {
+        "attachments": {
             "type": "array",
-            "items": { "type": "string" }
+            "items": {
+                "type": "object",
+                "properties": {
+                    "mime": { "type": "string" },
+                    "url": { "type": "string" }
+                },
+                "required": ["mime", "url"]
+            }
+        },
+        "headers": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            }
         },
         "history": {
             "type": "array",
@@ -36,60 +40,7 @@
                 "additionalProperties": true
             }
         },
-        "attachments": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "mime": { "type": "string" },
-                    "url": { "type": "string" }
-                },
-                "required": ["mime", "url"]
-            }
-        },
-        "window": {
-            "type": "integer",
-            "minimum": 1
-        },
-        "tools": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "function": {
-                        "type": "object",
-                        "properties": {
-                            "name": { "type": "string" },
-                            "description": { "type": "string" },
-                            "parameters": { "type": "object" },
-                            "strict": { "type": "boolean" }
-                        },
-                        "required": ["name"]
-                    },
-                    "handler": { "not": { "type": "null" } }
-                },
-                "required": ["function"]
-            }
-        },
-        "handler": { "not": { "type": "null" } },
-        "options": {
-            "type": "object",
-            "additionalProperties": true
-        },
-        "headers": {
-            "type": "object",
-            "additionalProperties": {
-                "type": "string"
-            }
-        },
-        "retries": {
-            "type": "integer",
-            "minimum": 0
-        },
-        "rpm": {
-            "type": "integer",
-            "minimum": 1
-        },
+        "input": { "not": { "type": "null" } },
         "limits": {
             "type": "object",
             "properties": {
@@ -99,6 +50,11 @@
             },
             "additionalProperties": true
         },
+        "options": {
+            "type": "object",
+            "additionalProperties": true
+        },
+        "output": { "not": { "type": "null" } },
         "quirks": {
             "type": "object",
             "properties": {
@@ -136,7 +92,53 @@
             },
             "additionalProperties": true
         },
-        "fetch": { "not": { "type": "null" } }
+        "retries": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "rpm": {
+            "type": "integer",
+            "minimum": 1
+        },
+        "schema": {
+            "type": "object",
+            "properties": {
+                "type": { "type": "string" },
+                "properties": { "type": "object" },
+                "required": { "type": "array", "items": { "type": "string" } }
+            },
+            "additionalProperties": true
+        },
+        "system": {
+            "type": "array",
+            "items": { "type": "string" }
+        },
+        "tools": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "function": {
+                        "type": "object",
+                        "properties": {
+                            "name": { "type": "string" },
+                            "description": { "type": "string" },
+                            "parameters": { "type": "object" },
+                            "strict": { "type": "boolean" }
+                        },
+                        "required": ["name"]
+                    },
+                    "handler": { "not": { "type": "null" } }
+                },
+                "required": ["function"]
+            }
+        },
+        "window": {
+            "type": "integer",
+            "minimum": 1
+        },
+        "fetch": { "not": { "type": "null" } },
+        "handler": { "not": { "type": "null" } }
     },
     "required": ["endpoint", "key", "model"],
     "additionalProperties": false

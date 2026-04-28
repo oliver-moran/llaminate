@@ -17,4 +17,11 @@ function toBeGreaterThan(received, floor) {
     };
 }
 
-expect.extend({ toMatchSchema, toBeGreaterThan });
+function toBe(received, expected) {
+    return {
+        message: () => `expected ${this.utils.printReceived(received)} to be ${this.utils.printExpected(expected)}`,
+        pass: received === expected,
+    };
+}
+
+expect.extend({ toMatchSchema, toBeGreaterThan, toBe });

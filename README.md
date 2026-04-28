@@ -1,11 +1,14 @@
 ![Llamina, the Llaminate mascot](https://oliver-moran.github.io/llaminate/assets/llaminate-256.webp)
 
-Llaminate is a simple but powerful library designed to abstract-away differences
-between chat completion APIs across LLM providers.
+Llaminate is a simple but powerful TypeScript library designed to abstract-away
+differences between chat completion APIs across LLM providers.
 
 It's robust at managing prompts, message histories, token usage and integrating
 tools. Ideal for quickly building applications to interact with LLM services,
 that may need to switch between them.
+
+You can even use Llaminate to chat with an LLM and execute code from the command
+line.
 
 ```bash
 npm i llaminate

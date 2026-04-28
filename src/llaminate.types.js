@@ -51,6 +51,11 @@
  *   { role: "user", content: "What is the capital of France?" },
  *   { role: "assistant", content: "The capital of France is Paris." },
  * ] }
+ * @property {Object} [input] An object specifying the input and output streams
+ * to use for the request. By default, Llaminate uses `process.stdin` and
+ * `process.stdout` for input and output, respectively.
+ * @example
+ * { input: process.stdin, output: process.stdout }
  * @property {Object<{
  *   tokens: number,
  *   attachments: number,
@@ -70,6 +75,9 @@
  *   temperature: 0.7,
  *   max_tokens: 150,
  * } }
+ * @property {Object} [output] An output stream to write responses to. By
+ * default, Llaminate uses `process.stdout` for output.
+ * @see input
  * @property {number} [retries] The maximum number of retries to attempt for
  * failed API requests before giving up.
  * @example { retries: 3 }
@@ -184,14 +192,16 @@
  * @type {Object}
  * @property {string|any} message The final response message, which can be a
  * string or an object conforming to a provided JSON schema.
- * @property {LlaminateMessage[]} result The array of messages returned as part
- * of the response.
+ * @property {string} uuid The unique identifier for the response.
+ * @property {string} [delta] The message content as deltas if this is a
+ * streaming response.
+ * @property {LlaminateMessage[]} [result] The array of messages returned as
+ * part of the response.
  * @property {Object<{
  *   input: number,
  *   output: number,
  *   total: number
- * }>} tokens The token usage information for the request.
- * @property {string} uuid The unique identifier for the response.
+ * }>} [tokens] The token usage information for the request.
  */
 
 /**

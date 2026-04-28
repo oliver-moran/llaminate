@@ -7,12 +7,14 @@ interface LlaminateConfig {
     attachments?: URLAttachment[];
     headers?: Record<string, string>;
     history?: LlaminateMessage[];
+    input?: NodeJS.ReadStream;
     limits?: {
         attachments?: number;
         recursions?: number;
         tokens?: number;
     };
     options?: Record<string, any>;
+    output?: NodeJS.WriteStream;
     quirks?: LlaminateQuirks;
     retries?: number;
     rpm?: number;
@@ -26,9 +28,10 @@ interface LlaminateConfig {
 
 interface LlaminateResponse {
     message: string | any;
-    result: LlaminateMessage[];
-    tokens: Tokens;
     uuid: string;
+    delta?: string;
+    result?: LlaminateMessage[];
+    tokens?: Tokens;
 }
 
 interface LlaminateMessage {

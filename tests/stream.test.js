@@ -35,6 +35,9 @@ describe("Streaming", () => {
             }
 
             if (i < chunks.length - 1) {
+                expect(chunks[i].delta).not.toBeNull();
+                expect(chunks[i].message.endsWith(chunks[i].delta)).toBeTruthy();
+                expect(chunks[i].delta).toMatch(/.*/);
                 expect(chunks[i].result).toBeNull();
                 expect(chunks[i].tokens).toBeNull();
             } else {
