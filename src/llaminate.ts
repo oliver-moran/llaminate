@@ -630,12 +630,19 @@ export class Llaminate {
      * response while it is being generated.
      * @param { LlaminateConfig } [config] Optional configuration settings for
      * this chat session. This can be used to override any instance configuration
-     * settings for the duration of the chat session, except for `endpoint` and
-     * `key`, which are fixed for the instance and cannot be overridden.
-     * @param { boolean } [stream=true] Whether to stream the responses from the
-     * service. If `false`, the chat session will wait for the full response to
-     * be received before printing it to the console. If `true`, the response
-     * will be streamed to the console as it is received.
+     * this chat session. Supported behavior in chat mode:
+     * - Most instance settings can be overridden for the duration of the
+     *   session.
+     * - `endpoint` and `key` are fixed for the instance and cannot be
+     *   overridden.
+     * - `options.stream` has special meaning in this method:
+     *   - `false`: each replies don't stream, only the final output is shown.
+     *   - `true` or unset: replies stream the the output as they arrive.
+     * @param { ResponseCallback } [callback] Optional callback invoked after
+     * each completion is received from the LLM. This can be used to set the CLI
+     * output if it should be different from the raw LLM response, for example
+     * if the response is expected to be in a structured format and you want to
+     * display a specific part of the response rather than the whole thing.
      * @returns { Promise<void> } A promise that resolves when the chat session
      * ends.
      * @example
@@ -647,7 +654,7 @@ export class Llaminate {
      *   ]
      * });
      */
-    async chat(config?: LlaminateConfig, stream: boolean = true): Promise<void> {
+    async chat(config?: LlaminateConfig, callback?: ResponseCallback): Promise<void> {
         // Role names to display in the CLI chat interface.
         const User = `\x1b[1m${_capitalizeFirstLetter(Llaminate.USER)}:\x1b[22m`;
         const Assistant = `\x1b[1m${_capitalizeFirstLetter(Llaminate.ASSISTANT)}:\x1b[22m`;
@@ -701,10 +708,11 @@ export class Llaminate {
         }).bind(this);
 
         const usage: Tokens = { input: 0, output: 0, total: 0 };
+
         const promise = new Promise<void>((exit, error) => {
             line.addListener("close", exit);
             line.addListener("error", error);
-        }).then(() => {
+        }).finally(() => {
             // Handle any additional logic after the promise resolves, if needed
             _clear();
             output?.write(`🎟️\u00A0\u00A0${usage.total} (⬆\u00A0${usage.input} ⬇\u00A0${usage.output})\n`);
@@ -720,9 +728,16 @@ export class Llaminate {
                 _clear(`${Assistant} ${phases[i++ % phases.length]} `);
             }, 200);
 
-            if (stream) {
+            if (_config.options?.stream === false || callback) {
+                const completion: LlaminateResponse = await this.complete(q, config);
+                clearInterval(animation);
+                const output = callback ? await callback(completion) : completion?.message || "";
+                _clear(`${Assistant} ${output.trim()}\n`);
+                _updateUsage(usage, completion);
+            } else {
                 const result = await this.stream(q, config);
 
+                let start = true;
                 let delimit = false;
                 let hangover = "";
                 for await (const chunk of result) {
@@ -741,12 +756,13 @@ export class Llaminate {
                         // Ignore any chunks at the start of a new delmit that
                         // don't contain any actual content. These are likely
                         // simply new lines.
-                        if (delimit && chunk.delta.trim() === "") continue;
+                        if ((start || delimit) && clean.trim() === "") continue;
                         // If are at the start of a new delmit and the chunk
                         // does contain some content, prepend two new lines
                         // after triming white space from the start.
-                        else if (delimit) {
-                            clean = `\n\n${clean.trimStart()}`;
+                        else if (start || delimit) {
+                            clean = start ? clean.trimStart() : `\n\n${clean.trimStart()}`;
+                            start = false;
                             delimit = false;
                         }
 
@@ -778,11 +794,6 @@ export class Llaminate {
                 // Make sure to move to a new line in the terminal when the
                 // stream ends.
                 _output("\n");
-            } else {
-                const completion: LlaminateResponse = await this.complete(q, config);
-                clearInterval(animation);
-                _clear(`${Assistant} ${completion.message}\n`);
-                _updateUsage(usage, completion);
             }
             
             if (!signal.aborted) {

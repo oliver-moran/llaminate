@@ -226,3 +226,10 @@
  *   id: string
  * }>} [tool_calls] The tool calls associated with assistant messages.
  */
+
+/**
+ * This callback type is called `responseCallback` and is displayed as a global symbol.
+ * @callback ResponseCallback
+ * @param {LlaminateResponse} response
+ * @returns {string} The string to display in the CLI for this response.
+ */

@@ -6,9 +6,9 @@ tsc
 
 # Minify JavaScript files
 echo "Minifying JavaScript files:"
-for file in dist/*.js; do
+find dist -type f -name '*.js' ! -name '*.min.js' -print0 | while IFS= read -r -d '' file; do
   echo "  - $file"
-  name="$(basename "$file" .js)" # Extract the file name without the .js extension and without the path
+  name="$(basename "$file" .js)" # Sourcemap URL should be relative to the output file.
   terser "$file" -o "${file%.js}.min.js" --source-map "url='${name}.min.js.map'" --comments 'some'
 done
 
@@ -19,10 +19,9 @@ find dist -type f \( -name '*.min.js.map' \) -prune -o -name '*.js.map' -exec rm
 
 # Renaming TypeScript declaration files
 echo "Renaming TypeScript declaration files."
-for file in dist/*.d.ts; do
+find dist -type f -name '*.d.ts' ! -name '*.min.d.ts' -print0 | while IFS= read -r -d '' file; do
   echo "  - $file"
-  name="$(basename "$file" .d.ts)" # Extract the file name without the .d.ts extension and without the path
-  mv "$file" "dist/${name}.min.d.ts"
+  mv "$file" "${file%.d.ts}.min.d.ts"
 done
 
 # Building documentation

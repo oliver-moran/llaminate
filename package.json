@@ -42,7 +42,10 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
     "ajv": "^8.18.0",
-    "handlebars": "^4.7.8"
+    "dompurify": "^3.4.7",
+    "handlebars": "^4.7.8",
+    "jsdom": "^29.1.1"
   }
 }

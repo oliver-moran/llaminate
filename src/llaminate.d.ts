@@ -42,6 +42,10 @@ interface LlaminateMessage {
     tool_call_id?: string; // For tool messages to link back to the call
 }
 
+interface ResponseCallback {
+    (response: LlaminateResponse): string | Promise<string>;
+}
+
 // SUBJECT TO CHANGE WITHOUT A MAJOR VERSION BUMP
 
 interface LlaminateQuirks {

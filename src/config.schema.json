@@ -52,6 +52,9 @@
         },
         "options": {
             "type": "object",
+            "properties": {
+                "stream": { "type": "boolean" }
+            },
             "additionalProperties": true
         },
         "output": { "not": { "type": "null" } },
