@@ -14,6 +14,19 @@
   ],
   "main": "dist/llaminate.min.js",
   "types": "dist/llaminate.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/llaminate.d.ts",
+      "require": "./dist/llaminate.min.js",
+      "default": "./dist/llaminate.min.js"
+    },
+    "./plugins": {
+      "types": "./dist/plugins/index.d.ts",
+      "require": "./dist/plugins/index.min.js",
+      "default": "./dist/plugins/index.min.js"
+    },
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "prebuild": "node scripts/prebuild.js",
     "build": "bash scripts/build.sh",

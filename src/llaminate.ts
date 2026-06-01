@@ -22,6 +22,9 @@ import { Buffer } from "node:buffer";
 import Ajv, { _ } from "ajv";
 
 // @ts-ignore This will be replaced with a minified version in the buildprocess
+import { USER_AGENT } from "./user-agent.min.js";
+
+// @ts-ignore This will be replaced with a minified version in the buildprocess
 import { RateLimiter } from "./ratelimiter.min.js";
 
 const ajv = new Ajv();
@@ -43,13 +46,8 @@ const SYSTEM_HBS = (() => {
     return (schema) => template({ schema });
 })();
 
-// Dynamically determine the Llaminate version and Node.js version
+// Dynamically determine the Llaminate version
 const { version: LLAMINATE_VERSION } = require("./build-info.json");
-const NODE_TITLE = process.title || "Node.js";
-const NODE_VERSION = process.version;
-const OS_TYPE = os.type();
-const OS_ARCH = os.arch();
-const USER_AGENT = `Llaminate/${LLAMINATE_VERSION} (https://github.com/oliver-moran/llaminate; ${NODE_TITLE}/${NODE_VERSION}; ${OS_TYPE}/${OS_ARCH})`;
 
 const MAX_ATTACHMENTS = 8; // Maximum attachments allowed in the context window
 const MAX_RECURSIONS = 5; // Maximum recursion depth processing responses

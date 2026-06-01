@@ -17,13 +17,6 @@ echo "Removing non-minified files."
 find dist -type f \( -name '*.min.js' \) -prune -o -name '*.js' -exec rm {} +
 find dist -type f \( -name '*.min.js.map' \) -prune -o -name '*.js.map' -exec rm {} +
 
-# Renaming TypeScript declaration files
-echo "Renaming TypeScript declaration files."
-find dist -type f -name '*.d.ts' ! -name '*.min.d.ts' -print0 | while IFS= read -r -d '' file; do
-  echo "  - $file"
-  mv "$file" "${file%.d.ts}.min.d.ts"
-done
-
 # Building documentation
 echo "Building documentation."
 npm run docs
