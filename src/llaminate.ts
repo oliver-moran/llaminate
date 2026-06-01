@@ -629,7 +629,6 @@ export class Llaminate {
      * displayed when the session ends. It's not possible to interrupt an LLM
      * response while it is being generated.
      * @param { LlaminateConfig } [config] Optional configuration settings for
-     * this chat session. This can be used to override any instance configuration
      * this chat session. Supported behavior in chat mode:
      * - Most instance settings can be overridden for the duration of the
      *   session.
