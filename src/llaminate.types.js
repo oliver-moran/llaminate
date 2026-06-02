@@ -102,6 +102,13 @@
  *   required: ["reply", "thoughts"],
  *   additionalProperties: false,
  * } }
+ * @property {AbortSignal} [signal] Optional abort signal for cancelling an
+ * in-flight request.
+ * @example
+ * const controller = new AbortController();
+ * { signal: controller.signal }
+ * // To abort the request:
+ * controller.abort();
  * @property {string[]} [system] System prompts to include with every request. A
  * tool call can also return system prompts in its response using {"@system": 
  * [...]}, which will be included in the context for that completion.

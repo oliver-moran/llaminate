@@ -19,6 +19,7 @@ interface LlaminateConfig {
     retries?: number;
     rpm?: number;
     schema?: Record<string, any>;
+    signal?: AbortSignal;
     system?: string[];
     tools?: Tool[];
     window?: number;

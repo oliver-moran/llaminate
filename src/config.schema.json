@@ -112,6 +112,7 @@
             },
             "additionalProperties": true
         },
+        "signal": { "not": { "type": "null" } },
         "system": {
             "type": "array",
             "items": { "type": "string" }

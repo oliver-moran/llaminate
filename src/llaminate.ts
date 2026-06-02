@@ -15,7 +15,6 @@ export type {
     LlaminateResponse,
     LlaminateMessage } from "./llaminate.types.js";
 
-import * as os from "node:os";
 import * as readline from "node:readline";
 import { Buffer } from "node:buffer";
 
@@ -624,8 +623,9 @@ export class Llaminate {
     /**
      * Starts an interactive chat session in the command line interface. The
      * session can be exited by pressing Ctrl+C. The LLM usage tokens will be
-     * displayed when the session ends. It's not possible to interrupt an LLM
-     * response while it is being generated.
+    * displayed when the session ends. While waiting for an LLM response,
+    * pressing Ctrl+C will cancel the in-flight request and return control to
+    * the prompt.
      * @param { LlaminateConfig } [config] Optional configuration settings for
      * this chat session. Supported behavior in chat mode:
      * - Most instance settings can be overridden for the duration of the
@@ -675,8 +675,9 @@ export class Llaminate {
         // starting the chat session.
         const _config = generateCompletionConfig.call(this, config, true);
 
-        const controller = new AbortController();
-        const { signal } = controller;
+        const sessionController = new AbortController();
+        const { signal } = sessionController;
+        let requestController: AbortController | null = null;
         const line = readline.createInterface({
             history: this.export().map(message => {
                 if (message.role === Llaminate.USER) {
@@ -691,8 +692,14 @@ export class Llaminate {
             signal
         });
 
-        line.on("SIGINT", controller.abort.bind(controller));
-        signal.addEventListener("abort", line.close.bind(line));
+        line.on("SIGINT", () => {
+            if (requestController && !requestController.signal.aborted) {
+                requestController.abort();
+            } else {
+                sessionController.abort();
+            }
+        });
+        signal.addEventListener("abort", line.close.bind(line), { once: true });
 
         const _output = ((str: string): void => {
             if (!signal.aborted) output?.write(str);
@@ -717,7 +724,11 @@ export class Llaminate {
 
         const _question = (async(q: string) => {
             if (signal.aborted) return;
-            line.pause();
+            requestController = new AbortController();
+            const requestConfig = {
+                ...(config || {}),
+                signal: requestController.signal
+            } as LlaminateConfig;
 
             const phases = ["\x1b[2m💡\x1b[22m", "💡"];
             let i = 0;
@@ -725,76 +736,87 @@ export class Llaminate {
                 _clear(`${Assistant} ${phases[i++ % phases.length]} `);
             }, 200);
 
-            if (_config.options?.stream === false || callback) {
-                const completion: LlaminateResponse = await this.complete(q, config);
-                clearInterval(animation);
-                const output = callback ? await callback(completion) : completion?.message || "";
-                _clear(`${Assistant} ${output.trim()}\n`);
-                _updateUsage(usage, completion);
-            } else {
-                const result = await this.stream(q, config);
+            try {
+                if (_config.options?.stream === false || callback) {
+                    const completion: LlaminateResponse = await this.complete(q, requestConfig);
+                    clearInterval(animation);
+                    const output = callback ? await callback(completion) : completion?.message || "";
+                    _clear(`${Assistant} ${output.trim()}\n`);
+                    _updateUsage(usage, completion);
+                } else {
+                    const result = await this.stream(q, requestConfig);
 
-                let start = true;
-                let delimit = false;
-                let hangover = "";
-                for await (const chunk of result) {
-                    if (animation && chunk.message !== "") {
-                        // Wait for the first chunk to arrive before clearing
-                        // the animation, sometimes the LLM can respond quickly
-                        // but without sending a chunk
-                        clearInterval(animation);
-                        _clear(`${Assistant} `);
-                        animation = null;
-                    }
-
-                    if (chunk.delta) {
-                        let clean = chunk.delta.replace(/[\x1E\x04]+$/, "");
-
-                        // Ignore any chunks at the start of a new delmit that
-                        // don't contain any actual content. These are likely
-                        // simply new lines.
-                        if ((start || delimit) && clean.trim() === "") continue;
-                        // If are at the start of a new delmit and the chunk
-                        // does contain some content, prepend two new lines
-                        // after triming white space from the start.
-                        else if (start || delimit) {
-                            clean = start ? clean.trimStart() : `\n\n${clean.trimStart()}`;
-                            start = false;
-                            delimit = false;
+                    let start = true;
+                    let delimit = false;
+                    let hangover = "";
+                    for await (const chunk of result) {
+                        if (animation && chunk.message !== "") {
+                            // Wait for the first chunk to arrive before clearing
+                            // the animation, sometimes the LLM can respond quickly
+                            // but without sending a chunk
+                            clearInterval(animation);
+                            _clear(`${Assistant} `);
+                            animation = null;
                         }
 
-                        // If the chunk ends with a delmit character, trim white
-                        // space from the end and set a flag. We won't carry
-                        // any hangover text (e.g. new lines, spaces) from this
-                        // delimited message.
-                        if (chunk.delta.endsWith("\x1E")) {
-                            clean = clean.trimEnd();
-                            delimit = true;
-                            hangover = "";
-                        // If the chunk is entirely white space, add it to the
-                        // hangover. This allows us to preserve it in the case
-                        // that is is useful content (e.g. new lines between
-                        // paragraphs), but throw it away if it's at the end of 
-                        // a delimited message.
-                        } else if (clean.trim() === "") hangover += clean;
-                        // Otherwise, if there is some actual content in the
-                        // chunk, output it along with any hangover, and reset
-                        // the hangover.
-                        else {
-                            const whitesspace = clean.substring(clean.trimEnd().length);
-                            _output(hangover + clean.trimEnd());
-                            hangover = whitesspace;
+                        if (chunk.delta) {
+                            let clean = chunk.delta.replace(/[\x1E\x04]+$/, "");
+
+                            // Ignore any chunks at the start of a new delmit that
+                            // don't contain any actual content. These are likely
+                            // simply new lines.
+                            if ((start || delimit) && clean.trim() === "") continue;
+                            // If are at the start of a new delmit and the chunk
+                            // does contain some content, prepend two new lines
+                            // after triming white space from the start.
+                            else if (start || delimit) {
+                                clean = start ? clean.trimStart() : `\n\n${clean.trimStart()}`;
+                                start = false;
+                                delimit = false;
+                            }
+
+                            // If the chunk ends with a delmit character, trim white
+                            // space from the end and set a flag. We won't carry
+                            // any hangover text (e.g. new lines, spaces) from this
+                            // delimited message.
+                            if (chunk.delta.endsWith("\x1E")) {
+                                clean = clean.trimEnd();
+                                delimit = true;
+                                hangover = "";
+                            // If the chunk is entirely white space, add it to the
+                            // hangover. This allows us to preserve it in the case
+                            // that is is useful content (e.g. new lines between
+                            // paragraphs), but throw it away if it's at the end of 
+                            // a delimited message.
+                            } else if (clean.trim() === "") hangover += clean;
+                            // Otherwise, if there is some actual content in the
+                            // chunk, output it along with any hangover, and reset
+                            // the hangover.
+                            else {
+                                const whitesspace = clean.substring(clean.trimEnd().length);
+                                _output(hangover + clean.trimEnd());
+                                hangover = whitesspace;
+                            }
                         }
+                        if (chunk.tokens) _updateUsage(usage, chunk);
                     }
-                    if (chunk.tokens) _updateUsage(usage, chunk);
+                    // Make sure to move to a new line in the terminal when the
+                    // stream ends.
+                    _output("\n");
                 }
-                // Make sure to move to a new line in the terminal when the
-                // stream ends.
-                _output("\n");
+            } catch (error: any) {
+                if (requestController?.signal.aborted || error?.name === "AbortError") {
+                    _output(` \x1b[2m(cancelled)\x1b[22m\n`);
+                } else {
+                    line.emit("error", error);
+                    return;
+                }
+            } finally {
+                clearInterval(animation);
+                requestController = null;
             }
             
             if (!signal.aborted) {
-                line.resume();
                 line.question(`${User} `, _question);
             }
         }).bind(this);
@@ -955,6 +977,7 @@ async function sendMessages(messages: LlaminateMessage[], config: LlaminateConfi
         method: "POST",
         headers: headers,
         body: json,
+        signal: config.signal,
     });
 }
 
