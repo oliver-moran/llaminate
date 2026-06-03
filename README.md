@@ -18,6 +18,12 @@ npm i llaminate
 import { Llaminate } from "llaminate";
 ```
 
+You can also import the CLI chat runner separately:
+
+```typescript
+import { chat } from "llaminate/chat";
+```
+
 ## Basic usage
 
 ```typescript

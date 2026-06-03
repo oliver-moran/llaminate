@@ -15,7 +15,6 @@ export type {
     LlaminateResponse,
     LlaminateMessage } from "./llaminate.types.js";
 
-import * as readline from "node:readline";
 import { Buffer } from "node:buffer";
 
 import Ajv, { _ } from "ajv";
@@ -25,6 +24,9 @@ import { USER_AGENT } from "./user-agent.min.js";
 
 // @ts-ignore This will be replaced with a minified version in the buildprocess
 import { RateLimiter } from "./ratelimiter.min.js";
+
+// @ts-ignore This will be replaced with a minified version in the buildprocess
+import { chat as runChat } from "./chat.min.js";
 
 const ajv = new Ajv();
 const validate = {
@@ -166,6 +168,14 @@ export class Llaminate {
     public static readonly ANTHROPIC = "https://api.anthropic.com/v1/messages";
     public static readonly GOOGLE = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
     public static readonly DEEPSEEK = "https://api.deepseek.com/chat/completions";
+
+    /**
+     * Starts an interactive chat session for the provided Llaminate instance.
+     * This static helper is equivalent to calling `instance.chat(...)`.
+     */
+    public static async chat(instance: Llaminate, config?: LlaminateConfig, callback?: ResponseCallback): Promise<void> {
+        return await runChat(instance, config, callback);
+    }
 
     /**
      * The configuration options for the Llaminate instance.
@@ -652,187 +662,10 @@ export class Llaminate {
      * });
      */
     async chat(config?: LlaminateConfig, callback?: ResponseCallback): Promise<void> {
-        // Role names to display in the CLI chat interface.
-        const User = `\x1b[1m${_capitalizeFirstLetter(Llaminate.USER)}:\x1b[22m`;
-        const Assistant = `\x1b[1m${_capitalizeFirstLetter(Llaminate.ASSISTANT)}:\x1b[22m`;
-
-        // Input and output streams can be set in the config, but they are not
-        // valid config options afterwards, so we extract them here and delete
-        // them from the config.
-        const input = config?.input || this.input;
-        const output = config?.output || this.output;
-        delete config?.input;
-        delete config?.output;
-
-        // If the config includes a history, replace the instance history with
-        // it and delete it from the local config.
-        if (config?.history) {
-            this.clear(config?.history);
-            delete config?.history;
-        }
-
-        // Validate the config and generate so as to throw any errors before
-        // starting the chat session.
-        const _config = generateCompletionConfig.call(this, config, true);
-
-        const sessionController = new AbortController();
-        const { signal } = sessionController;
-        let requestController: AbortController | null = null;
-        const line = readline.createInterface({
-            history: this.export().map(message => {
-                if (message.role === Llaminate.USER) {
-                    if (typeof message.content === "string") return message.content;
-                    else if (Array.isArray(message.content)) {
-                        return message.content.map(item => (item.type === "text" ? item.text : null));
-                    }
-                } else return null;
-            }).flat().filter(Boolean).reverse(), // Load the history into the readline interface, with the most recent messages first  
-            input: input,
-            output: output,
-            signal
+        return await runChat(this, config, callback, {
+            input: this.input,
+            output: this.output
         });
-
-        line.on("SIGINT", () => {
-            if (requestController && !requestController.signal.aborted) {
-                requestController.abort();
-            } else {
-                sessionController.abort();
-            }
-        });
-        signal.addEventListener("abort", line.close.bind(line), { once: true });
-
-        const _output = ((str: string): void => {
-            if (!signal.aborted) output?.write(str);
-        }).bind(this);
-
-        const _clear = ((str?: string): void => {
-            readline.clearLine(output, 0);
-            readline.cursorTo(output, 0);
-            if (str) _output(str);
-        }).bind(this);
-
-        const usage: Tokens = { input: 0, output: 0, total: 0 };
-
-        const promise = new Promise<void>((exit, error) => {
-            line.addListener("close", exit);
-            line.addListener("error", error);
-        }).finally(() => {
-            // Handle any additional logic after the promise resolves, if needed
-            _clear();
-            output?.write(`🎟️\u00A0\u00A0${usage.total} (⬆\u00A0${usage.input} ⬇\u00A0${usage.output})\n`);
-        });
-
-        const _question = (async(q: string) => {
-            if (signal.aborted) return;
-            requestController = new AbortController();
-            const requestConfig = {
-                ...(config || {}),
-                signal: requestController.signal
-            } as LlaminateConfig;
-
-            const phases = ["\x1b[2m💡\x1b[22m", "💡"];
-            let i = 0;
-            let animation = setInterval(() => {
-                _clear(`${Assistant} ${phases[i++ % phases.length]} `);
-            }, 200);
-
-            try {
-                if (_config.options?.stream === false || callback) {
-                    const completion: LlaminateResponse = await this.complete(q, requestConfig);
-                    clearInterval(animation);
-                    const output = callback ? await callback(completion) : completion?.message || "";
-                    _clear(`${Assistant} ${output.trim()}\n`);
-                    _updateUsage(usage, completion);
-                } else {
-                    const result = await this.stream(q, requestConfig);
-
-                    let start = true;
-                    let delimit = false;
-                    let hangover = "";
-                    for await (const chunk of result) {
-                        if (animation && chunk.message !== "") {
-                            // Wait for the first chunk to arrive before clearing
-                            // the animation, sometimes the LLM can respond quickly
-                            // but without sending a chunk
-                            clearInterval(animation);
-                            _clear(`${Assistant} `);
-                            animation = null;
-                        }
-
-                        if (chunk.delta) {
-                            let clean = chunk.delta.replace(/[\x1E\x04]+$/, "");
-
-                            // Ignore any chunks at the start of a new delmit that
-                            // don't contain any actual content. These are likely
-                            // simply new lines.
-                            if ((start || delimit) && clean.trim() === "") continue;
-                            // If are at the start of a new delmit and the chunk
-                            // does contain some content, prepend two new lines
-                            // after triming white space from the start.
-                            else if (start || delimit) {
-                                clean = start ? clean.trimStart() : `\n\n${clean.trimStart()}`;
-                                start = false;
-                                delimit = false;
-                            }
-
-                            // If the chunk ends with a delmit character, trim white
-                            // space from the end and set a flag. We won't carry
-                            // any hangover text (e.g. new lines, spaces) from this
-                            // delimited message.
-                            if (chunk.delta.endsWith("\x1E")) {
-                                clean = clean.trimEnd();
-                                delimit = true;
-                                hangover = "";
-                            // If the chunk is entirely white space, add it to the
-                            // hangover. This allows us to preserve it in the case
-                            // that is is useful content (e.g. new lines between
-                            // paragraphs), but throw it away if it's at the end of 
-                            // a delimited message.
-                            } else if (clean.trim() === "") hangover += clean;
-                            // Otherwise, if there is some actual content in the
-                            // chunk, output it along with any hangover, and reset
-                            // the hangover.
-                            else {
-                                const whitesspace = clean.substring(clean.trimEnd().length);
-                                _output(hangover + clean.trimEnd());
-                                hangover = whitesspace;
-                            }
-                        }
-                        if (chunk.tokens) _updateUsage(usage, chunk);
-                    }
-                    // Make sure to move to a new line in the terminal when the
-                    // stream ends.
-                    _output("\n");
-                }
-            } catch (error: any) {
-                if (requestController?.signal.aborted || error?.name === "AbortError") {
-                    _output(` \x1b[2m(cancelled)\x1b[22m\n`);
-                } else {
-                    line.emit("error", error);
-                    return;
-                }
-            } finally {
-                clearInterval(animation);
-                requestController = null;
-            }
-            
-            if (!signal.aborted) {
-                line.question(`${User} `, _question);
-            }
-        }).bind(this);
-
-        line.question(`${User} `, _question);
-        return promise;
-
-        function _capitalizeFirstLetter(str: string): string {
-            return str.charAt(0).toUpperCase() + str.slice(1);
-        }
-
-        function _updateUsage(usage: Tokens, response: LlaminateResponse): void {
-            usage.input += response.tokens?.input || 0;
-            usage.output += response.tokens?.output || 0;
-            usage.total += response.tokens?.total || 0;
-        }
     }
 }
 

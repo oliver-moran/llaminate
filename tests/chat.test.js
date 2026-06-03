@@ -66,4 +66,26 @@ describe("Chatting", () => {
         });
         
     });
+
+    test("when chat is imported directly, the answer is correct", async () => {
+
+        const process = spawn("node", ["./tests/scripts/chat-module.js"]);
+
+        let output = "";
+        process.stdout.on("data", (data) => {
+            output += data.toString();
+            if (output.includes("Paris")) {
+                expect(output).toContain("Paris");
+                process.kill();
+            }
+        });
+
+        process.stdin.write("What's the capital of France?\n");
+
+        await new Promise((resolve, reject) => {
+            process.on("close", resolve);
+            process.on("error", reject);
+        });
+
+    });
 });

@@ -776,6 +776,11 @@ requests to the LLM service.</td>
   additionalProperties: false,
 } }</code></pre>
 
+    <pre class="prettyprint"><code>const controller = new AbortController();
+{ signal: controller.signal }
+// To abort the request:
+controller.abort();</code></pre>
+
     <pre class="prettyprint"><code>{ system: [
   "You are an assistant who answers questions about movies.",
   "You are always excited about movie trivia and love sharing fun facts.",
