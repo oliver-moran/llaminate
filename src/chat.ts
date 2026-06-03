@@ -191,6 +191,52 @@ async function runInkChat(
     const { Box, Text, render, useApp, useInput } = Ink;
     const banner = buildBanner(target.config.endpoint, target.config.model);
 
+    // Animated number component for smooth token counting
+    const AnimatedNumber = ({ value }: { value: number }) => {
+        const [displayed, setDisplayed] = useState(value);
+        const animationRef = useRef(null as NodeJS.Timeout | null);
+        const displayedRef = useRef(0 as number);
+
+        useEffect(() => {
+            displayedRef.current = displayed;
+        }, [displayed]);
+
+        useEffect(() => {
+            const start = displayedRef.current;
+            const end = value;
+            const duration = 1000;
+
+            if (animationRef.current) clearTimeout(animationRef.current);
+            if (start === end) return;
+
+            const startTime = Date.now();
+            const animate = () => {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const current = Math.floor(start + (end - start) * eased);
+                setDisplayed(current);
+                if (progress < 1) animationRef.current = setTimeout(animate, 16);
+            };
+            animate();
+            return () => { if (animationRef.current) clearTimeout(animationRef.current); };
+        }, [value]);
+
+        return displayed;
+    };
+
+    // Animated footer component
+    const AnimatedFooter = ({ tokens }: { tokens: Tokens }) => {
+        return h(Text, { color: "gray" },
+            "🎟️  ",
+            h(AnimatedNumber, { value: tokens.total }),
+            " (⬆ ",
+            h(AnimatedNumber, { value: tokens.input }),
+            " ⬇ ",
+            h(AnimatedNumber, { value: tokens.output }),
+            ")");
+    };
+
     await new Promise<void>((resolve, reject) => {
         let app: any;
         let settled = false;
@@ -255,15 +301,16 @@ async function runInkChat(
                     signal: state.request.signal,
                 } as LlaminateConfig;
 
+                let response = "";
                 try {
                     if (!streamEnabled || callback) {
                         const completion = await target.complete(question, requestConfig);
-                        const text = callback ? await callback(completion) : completion?.message || "";
-                        appendTurn(question, tintAssistantOutput(renderMarkdown(String(text).trim())));
+                        response = callback ? await callback(completion) : completion?.message || "";
+                        appendTurn(question, tintAssistantOutput(renderMarkdown(String(response).trim())));
                         syncUsage(completion);
                     } else {
                         const result = await target.stream(question, requestConfig);
-                        let response = "";
+                        response = "";
                         let start = true;
                         let delimit = false;
                         let hangover = "";
@@ -300,9 +347,9 @@ async function runInkChat(
                     }
                 } catch (error: any) {
                     if (state.request?.signal.aborted || error?.name === "AbortError") {
-                        const interrupted = activeOutput
-                            ? `${ANSI.brightCyan}${activeOutput}${ANSI.reset}\n${ANSI.brightCyan}(interrupted)${ANSI.reset}`
-                            : `${ANSI.brightCyan}(interrupted)${ANSI.reset}`;
+                        const interrupted = response
+                            ? `${ANSI.brightCyan}${response}${ANSI.reset}${ANSI.dimWhite}… 💣${ANSI.reset}`
+                            : `${ANSI.dimWhite}… 💣${ANSI.reset}`;
                         appendTurn(question, interrupted);
                     } else {
                         finish(error);
@@ -418,7 +465,7 @@ async function runInkChat(
 
                 return h(Text, { color: "cyanBright" },
                     activeOutput,
-                    h(Text, { color: "magentaBright" }, typingCursorVisible ? "▋" : " "));
+                    h(Text, { color: "magentaBright" }, typingCursorVisible ? "▁" : " "));
             };
 
             return h(Box, { flexDirection: "column" },
@@ -442,7 +489,7 @@ async function runInkChat(
                             h(Box, { height: 1 }, h(Text, null, " ")),
                             renderActiveOutput())
                         : h(Box, { marginBottom: 1 }, h(Text, { color: "white" }, `${inputValue}${cursorVisible ? "█" : " "}`))),
-                h(Text, { color: "gray" }, formatFooter(footer)));
+                h(AnimatedFooter, { tokens: footer }));
         };
 
         app = render(h(App), {
