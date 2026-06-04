@@ -68,6 +68,9 @@
  *   attachments: 5,
  *   recursions: 3,
  * } }
+ * @property {string} [name] A name for the Llaminate configuration, required
+ * when running from a configuration file.
+ * @example { name: "mychatbot" }
  * @property {Object} [options] Additional options to include in the request
  * body sent to the LLM service.
  * @example

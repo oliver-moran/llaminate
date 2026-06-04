@@ -50,6 +50,7 @@
             },
             "additionalProperties": true
         },
+        "name": { "type": "string" },
         "options": {
             "type": "object",
             "properties": {

@@ -147,17 +147,21 @@ function colorizeBannerArtLine(line: string, lineIndex: number, lineCount: numbe
     return `\x1b[38;2;${red};${green};${blue}m${line}${ANSI.reset}`;
 }
 
-function printBanner(io: ChatIO, endpoint: string, model: string): void {
-    io.write?.(buildBanner(endpoint, model));
+function printBanner(io: ChatIO, endpoint: string, model: string, name?: string): void {
+    io.write?.(buildBanner(endpoint, model, name));
 }
 
-function buildBanner(endpoint: string, model: string): string {
+function buildBanner(endpoint: string, model: string, name?: string): string {
     const artLines = llamina.split("\n").slice(1);
     const artWidth = Math.max(...artLines.map(l => l.length));
     const padded = artLines.map(l => l.padEnd(artWidth));
 
+    const versionLine = name 
+        ? `${ANSI.boldWhite}Llaminate v${LLAMINATE_VERSION} (${name})${ANSI.reset}`
+        : `${ANSI.boldWhite}Llaminate v${LLAMINATE_VERSION}${ANSI.reset}`;
+
     const info = [
-        `${ANSI.boldWhite}Llaminate v${LLAMINATE_VERSION}${ANSI.reset}`,
+        versionLine,
         `${ANSI.dimWhite}${endpoint}${ANSI.reset}`,
         `${ANSI.dimWhite}${model}${ANSI.reset}`,
     ];
@@ -189,7 +193,7 @@ async function runInkChat(
     const h = React.createElement;
     const { useEffect, useRef, useState } = React;
     const { Box, Text, render, useApp, useInput } = Ink;
-    const banner = buildBanner(target.config.endpoint, target.config.model);
+    const banner = buildBanner(target.config.endpoint, target.config.model, target.config.name);
 
     // Animated number component for smooth token counting
     const AnimatedNumber = ({ value }: { value: number }) => {
@@ -468,6 +472,8 @@ async function runInkChat(
                     h(Text, { color: "magentaBright" }, typingCursorVisible ? "▁" : " "));
             };
 
+            if (isExiting) return null;
+
             return h(Box, { flexDirection: "column" },
                 h(Text, null, banner),
                 transcript.map((item: TranscriptEntry) => h(Box, {
@@ -478,17 +484,15 @@ async function runInkChat(
                     h(Text, { color: "white" }, item.user || " "),
                     h(Box, { height: 1 }, h(Text, null, " ")),
                     h(Text, null, item.assistant || " "))),
-                isExiting
-                    ? null
-                    : (busy
-                        ? h(Box, {
-                            marginBottom: 1,
-                            flexDirection: "column",
-                        },
-                            h(Text, { color: "white" }, activeQuestion),
-                            h(Box, { height: 1 }, h(Text, null, " ")),
-                            renderActiveOutput())
-                        : h(Box, { marginBottom: 1 }, h(Text, { color: "white" }, `${inputValue}${cursorVisible ? "█" : " "}`))),
+                busy
+                    ? h(Box, {
+                        marginBottom: 1,
+                        flexDirection: "column",
+                      },
+                        h(Text, { color: "white" }, activeQuestion),
+                        h(Box, { height: 1 }, h(Text, null, " ")),
+                        renderActiveOutput())
+                    : h(Box, { marginBottom: 1 }, h(Text, { color: "white" }, `${inputValue}${cursorVisible ? "█" : " "}`)),
                 h(AnimatedFooter, { tokens: footer }));
         };
 
@@ -539,7 +543,7 @@ export async function chat(
 
     try {
         if (io.output.isTTY) await runInkChat(target, io, state, local, streamEnabled, callback, usage);
-        else printBanner(io, target.config.endpoint, target.config.model);
+        else printBanner(io, target.config.endpoint, target.config.model, target.config.name);
     } finally {
         state.request?.abort();
     }

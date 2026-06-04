@@ -168,6 +168,7 @@ export class Llaminate {
     public static readonly ANTHROPIC = "https://api.anthropic.com/v1/messages";
     public static readonly GOOGLE = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
     public static readonly DEEPSEEK = "https://api.deepseek.com/chat/completions";
+    public static readonly OLLAMA = "http://localhost:11434/v1/chat/completions";    
 
     /**
      * Starts an interactive chat session for the provided Llaminate instance.

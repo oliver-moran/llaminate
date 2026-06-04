@@ -13,6 +13,7 @@ interface LlaminateConfig {
         recursions?: number;
         tokens?: number;
     };
+    name?: string;
     options?: Record<string, any>;
     output?: NodeJS.WriteStream;
     quirks?: LlaminateQuirks;

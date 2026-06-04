@@ -12,6 +12,9 @@
     "README.md",
     "LICENSE"
   ],
+  "bin": {
+    "llaminate": "./dist/cli/llaminate.min.js"
+  },
   "main": "dist/llaminate.min.js",
   "types": "dist/llaminate.d.ts",
   "exports": {
@@ -39,7 +42,8 @@
     "prepare": "bash scripts/prepare.sh",
     "pretest": "node scripts/pretest.js",
     "scratch": "node --env-file=.env ./tests/scratch.js",
-    "test": "jest --i --config=./tests/jest.config.json"
+    "test": "jest --i --config=./tests/jest.config.json",
+    "cli": "node dist/cli/llaminate.min.js"
   },
   "keywords": [
     "LLM",
@@ -53,6 +57,7 @@
   "license": "MIT",
   "devDependencies": {
     "@dotenvx/dotenvx": "^1.55.1",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.6.0",
     "jest": "^30.3.0",
     "jsdoc": "^4.0.5",
@@ -65,6 +70,7 @@
     "dompurify": "^3.4.7",
     "handlebars": "^4.7.8",
     "ink": "^7.0.5",
+    "js-yaml": "^4.2.0",
     "jsdom": "^29.1.1",
     "marked": "^15.0.12",
     "marked-terminal": "^7.3.0",

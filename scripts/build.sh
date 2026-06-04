@@ -9,7 +9,7 @@ echo "Minifying JavaScript files:"
 find dist -type f -name '*.js' ! -name '*.min.js' -print0 | while IFS= read -r -d '' file; do
   echo "  - $file"
   name="$(basename "$file" .js)" # Sourcemap URL should be relative to the output file.
-  terser "$file" -o "${file%.js}.min.js" --source-map "url='${name}.min.js.map'" --comments 'some'
+  terser "$file" -o "${file%.js}.min.js" --source-map "url='${name}.min.js.map'" --comments 'some' --keep-shebang
 done
 
 # Remove original JavaScript files
