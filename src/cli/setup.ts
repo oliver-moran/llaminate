@@ -40,6 +40,7 @@ interface SetupResult {
     endpoint: string;
     apiKey: string;
     model: string;
+    system?: string;
 }
 
 // ANSI color codes
@@ -137,14 +138,16 @@ function saveConfig(config: SetupResult): void {
             name: config.name,
             endpoint: config.endpoint,
             model: config.model,
-            key: config.name.toUpperCase()
+            key: config.name.toUpperCase(),
+            ...(config.system !== undefined && { system: config.system.split('\n') })
         };
     } else {
         existingConfigs.push({
             name: config.name,
             endpoint: config.endpoint,
             model: config.model,
-            key: config.name.toUpperCase()
+            key: config.name.toUpperCase(),
+            ...(config.system !== undefined && { system: config.system.split('\n') })
         });
     }
     
@@ -208,12 +211,12 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
             const [endpoint, setEndpoint] = React.useState('');
             const [apiKey, setApiKey] = React.useState('');
             const [model, setModel] = React.useState('');
+            const [system, setSystem] = React.useState('');
             const [hidden, setHidden] = React.useState(true);
-            const [focusedField, setFocusedField] = React.useState<'name' | 'endpoint' | 'model' | 'key' | 'save'>('name');
-            const [cursorVisible, setCursorVisible] = React.useState(true);
+            const [focusedField, setFocusedField] = React.useState<'name' | 'endpoint' | 'model' | 'key' | 'system' | 'save'>('name');
 
-            const fields: ('name' | 'endpoint' | 'model' | 'key')[] = ['name', 'endpoint', 'model', 'key'];
-            const allFields: ('name' | 'endpoint' | 'model' | 'key' | 'save')[] = ['name', 'endpoint', 'model', 'key', 'save'];
+            const fields: ('name' | 'endpoint' | 'model' | 'key' | 'system')[] = ['name', 'endpoint', 'model', 'key', 'system'];
+            const allFields: ('name' | 'endpoint' | 'model' | 'key' | 'system' | 'save')[] = ['name', 'endpoint', 'model', 'key', 'system', 'save'];
 
             // Validation
             const trimmedName = name.trim().toLowerCase();
@@ -222,6 +225,7 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
             const isEndpointValid = endpoint.trim() !== '' && isValidUrl(endpoint.trim().toLowerCase());
             const isModelValid = model.trim().toLowerCase() !== '';
             const isKeyValid = apiKey.trim() !== '';
+            const isSystemFilled = system.trim() !== '';
             const isFormValid = isNameValid && isEndpointValid && isModelValid;
 
             const handleSubmit = () => {
@@ -237,7 +241,8 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
                         name: trimmedName,
                         endpoint: trimmedEndpoint,
                         apiKey: apiKey.trim(),
-                        model: trimmedModel
+                        model: trimmedModel,
+                        system: system.trim()
                     });
                     exit();
                     return;
@@ -258,6 +263,8 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
                     if (trimmedModel === '') return;
                     setFocusedField('key');
                 } else if (focusedField === 'key') {
+                    setFocusedField('system');
+                } else if (focusedField === 'system') {
                     setFocusedField('save');
                 }
             };
@@ -269,7 +276,12 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
                     return;
                 }
 
+                // For system field, Enter inserts newline instead of submitting
                 if (key.return) {
+                    if (focusedField === 'system') {
+                        setSystem(system + '\n');
+                        return;
+                    }
                     handleSubmit();
                     return;
                 }
@@ -311,11 +323,12 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
                             name: setName,
                             endpoint: setEndpoint,
                             model: setModel,
-                            key: setApiKey
+                            key: setApiKey,
+                            system: setSystem
                         };
                         const setter = setters[focusedField];
                         if (setter) {
-                            const values: Record<string, string> = { name, endpoint, model, key: apiKey };
+                            const values: Record<string, string> = { name, endpoint, model, key: apiKey, system };
                             const currentValue = values[focusedField];
                             setter(currentValue.slice(0, -1));
                         }
@@ -330,14 +343,15 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
                         name: setName,
                         endpoint: setEndpoint,
                         model: setModel,
-                        key: setApiKey
+                        key: setApiKey,
+                        system: setSystem
                     };
                     const setter = setters[focusedField];
                     if (setter) {
-                        const values: Record<string, string> = { name, endpoint, model, key: apiKey };
+                        const values: Record<string, string> = { name, endpoint, model, key: apiKey, system };
                         const currentValue = values[focusedField];
                         let newValue = currentValue + input;
-                        // Convert to lowercase for name, endpoint, model (not for key)
+                        // Convert to lowercase for name, endpoint, model (not for key or system)
                         if (focusedField === 'name' || focusedField === 'endpoint' || focusedField === 'model') {
                             newValue = newValue.toLowerCase();
                         }
@@ -346,27 +360,19 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
                 }
             });
 
-            // Blinking cursor for input fields
-            React.useEffect(() => {
-                const timer = setInterval(() => {
-                    setCursorVisible(prev => !prev);
-                }, 500);
-                return () => clearInterval(timer);
-            }, []);
-
             const displayValue = (value: string, isHidden: boolean) => isHidden ? '*'.repeat(value.length) : value;
 
             const getFieldDisplay = (field: string) => {
                 const isFocused = focusedField === field;
-                const values: Record<string, string> = { name, endpoint, model, key: apiKey };
+                const values: Record<string, string> = { name, endpoint, model, key: apiKey, system };
                 const fieldValue = values[field];
 
                 if (field === 'key') {
                     const displayed = displayValue(fieldValue, hidden);
-                    return isFocused ? displayed + (cursorVisible ? '█' : ' ') : displayed;
+                    return isFocused ? displayed + '█' : displayed;
                 }
 
-                return isFocused ? fieldValue + (cursorVisible ? '█' : ' ') : fieldValue;
+                return isFocused ? fieldValue + '█' : fieldValue;
             };
 
             // Label color: cyan if valid, gray if not
@@ -375,6 +381,7 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
                 if (field === 'endpoint') return isEndpointValid ? 'cyan' : 'gray';
                 if (field === 'model') return isModelValid ? 'cyan' : 'gray';
                 if (field === 'key') return isKeyValid ? 'cyan' : 'gray';
+                if (field === 'system') return isSystemFilled ? 'cyan' : 'gray';
                 return 'gray';
             };
 
@@ -382,6 +389,25 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
             const getValueColor = (field: string) => {
                 if (field === 'name' && isNameDuplicate) return 'red';
                 return 'white';
+            };
+
+            // Render system field with word-wrapping support
+            const renderSystemField = () => {
+                const isFocused = focusedField === 'system';
+                const labelColor = getLabelColor('system');
+                const colorCode = labelColor === 'cyan' ? ANSI.cyan : ANSI.gray;
+                const prefix = `  ${isFocused ? ANSI.bold : ''}${colorCode}system${ANSI.reset}: `;
+                const lines = system.split('\n');
+                return h(Box, { flexDirection: 'column' },
+                    h(Box, { key: 'system-first', flexDirection: 'row' },
+                        h(Text, { color: 'white' }, prefix + lines[0] + (isFocused && lines.length === 1 ? '█' : ''))
+                    ),
+                    ...lines.slice(1).map((line, i, arr) =>
+                        h(Box, { key: `system-line-${i}`, flexDirection: 'row' },
+                            h(Text, { color: 'white' }, '          ' + line + (isFocused && i === arr.length - 1 ? '█' : ''))
+                        )
+                    )
+                );
             };
 
             return h(Box, { flexDirection: 'column' },
@@ -413,6 +439,7 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
                     h(Text, { color: getLabelColor('key') }, ': '),
                     h(Text, { color: 'white' }, getFieldDisplay('key'))
                 ),
+                renderSystemField(),
 
                 // Single space margin
                 h(Text, null, ' '),

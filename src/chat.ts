@@ -261,8 +261,6 @@ async function runInkChat(
             const [busy, setBusy] = useState(false);
             const [isExiting, setIsExiting] = useState(false);
             const [spinnerFrame, setSpinnerFrame] = useState(0);
-            const [typingCursorVisible, setTypingCursorVisible] = useState(true);
-            const [cursorVisible, setCursorVisible] = useState(true);
             const [footer, setFooter] = useState({ ...usage } as Tokens);
             const requestRef = useRef(null as AbortController | null);
             const nextId = useRef(0);
@@ -389,31 +387,7 @@ async function runInkChat(
                 return () => clearInterval(timer);
             }, [busy, activeOutput]);
 
-            useEffect(() => {
-                if (!busy || !activeOutput) {
-                    setTypingCursorVisible(true);
-                    return;
-                }
 
-                const timer = setInterval(() => {
-                    if (mounted.current) setTypingCursorVisible(visible => !visible);
-                }, 220);
-
-                return () => clearInterval(timer);
-            }, [busy, activeOutput]);
-
-            useEffect(() => {
-                if (busy) {
-                    setCursorVisible(false);
-                    return;
-                }
-
-                const timer = setInterval(() => {
-                    if (mounted.current) setCursorVisible(visible => !visible);
-                }, 500);
-
-                return () => clearInterval(timer);
-            }, [busy]);
 
             useEffect(() => {
                 if (!isExiting) return;
@@ -469,7 +443,7 @@ async function runInkChat(
 
                 return h(Text, { color: "cyanBright" },
                     activeOutput,
-                    h(Text, { color: "magentaBright" }, typingCursorVisible ? "▁" : " "));
+                    h(Text, { color: "magentaBright" }, "▁"));
             };
 
             if (isExiting) return null;
@@ -492,7 +466,7 @@ async function runInkChat(
                         h(Text, { color: "white" }, activeQuestion),
                         h(Box, { height: 1 }, h(Text, null, " ")),
                         renderActiveOutput())
-                    : h(Box, { marginBottom: 1 }, h(Text, { color: "white" }, `${inputValue}${cursorVisible ? "█" : " "}`)),
+                    : h(Box, { marginBottom: 1 }, h(Text, { color: "white" }, `${inputValue}█`)),
                 h(AnimatedFooter, { tokens: footer }));
         };
 
