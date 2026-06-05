@@ -37,6 +37,10 @@
  *     url: "data:application/pdf;base64,JVBERi0xLjcKJcfs..."
  *   }
  * ] }
+ * @property {string} [description] An optional description of the Llaminate
+ * configuration, used for documentation purposes.
+ * @example
+ * { description: "Configuration for my movie trivia chatbot." }
  * @property {Object} [headers] Additional headers to include in the API
  * requests to the LLM service.
  * @example

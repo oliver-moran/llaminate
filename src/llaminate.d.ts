@@ -5,6 +5,7 @@ interface LlaminateConfig {
     key: string;
     model: string;
     attachments?: URLAttachment[];
+    description?: string;
     headers?: Record<string, string>;
     history?: LlaminateMessage[];
     input?: NodeJS.ReadStream;

@@ -199,3 +199,110 @@ function cleanupEnvFile(configPath: string): void {
     
     fs.writeFileSync(envPath, newLines.join('\n'));
 }
+
+/**
+ * Validates the config.yaml file by ensuring it can be parsed and validating
+ * all configurations against the schema.
+ * @param configPath - Path to the config file
+ * @throws Error if validation fails
+ */
+export function validateConfigFile(configPath: string): void {
+    // First, check if the file can be parsed
+    let content: string;
+    try {
+        content = fs.readFileSync(configPath, 'utf-8');
+    } catch (error) {
+        throw new Error(`Failed to read config file: ${(error as Error).message}`);
+    }
+
+    // Try to parse as YAML
+    const yaml = require('js-yaml');
+    let configs: CliConfig | CliConfig[];
+    try {
+        configs = yaml.load(content) as CliConfig | CliConfig[];
+    } catch (error) {
+        throw new Error(`Failed to parse config file as YAML: ${(error as Error).message}`);
+    }
+
+    // Normalize to array
+    const configArray = Array.isArray(configs) ? configs : [configs];
+
+    // If no configs, that's valid (empty file)
+    if (configArray.length === 0) {
+        return;
+    }
+
+    // Load the schema
+    let schema: any;
+    try {
+        let schemaPath = path.resolve(path.dirname(configPath), '../config.schema.json');
+        // Also try in the same directory
+        if (!fs.existsSync(schemaPath)) {
+            const dir = path.dirname(configPath);
+            const possiblePaths = [
+                path.join(dir, 'config.schema.json'),
+                path.join(dir, '../config.schema.json'),
+                path.join(dir, '../../src/config.schema.json'),
+                path.join(process.cwd(), 'src/config.schema.json')
+            ];
+            for (const p of possiblePaths) {
+                if (fs.existsSync(p)) {
+                    schemaPath = p;
+                    break;
+                }
+            }
+        }
+        const schemaContent = fs.readFileSync(schemaPath, 'utf-8');
+        schema = JSON.parse(schemaContent);
+    } catch (error) {
+        // If we can't find/load the schema, we'll skip schema validation
+        // but still ensure the file can be parsed
+        return;
+    }
+
+    // Load Ajv for validation
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const Ajv = require('ajv');
+    const ajv = new Ajv();
+    const validate = ajv.compile(schema);
+
+    // Validate each configuration
+    for (const config of configArray) {
+        // The CLI config uses 'key' to reference .env, but the schema expects the actual key value
+        // For validation purposes, we'll temporarily replace it with a dummy value
+        const configForValidation = {
+            ...config,
+            key: config.key || 'dummy_key_for_validation'
+        };
+
+        const valid = validate(configForValidation);
+        if (!valid) {
+            const errors = validate.errors ? validate.errors.map((e: any) => 
+                `  - ${e.instancePath} ${e.message}`
+            ).join('\n') : 'Unknown validation error';
+            throw new Error(`Validation failed for configuration "${config.name || '(unnamed)'}":\n${errors}`);
+        }
+    }
+}
+
+/**
+ * Lists all configuration names from the config file.
+ * @param configPath - Path to the config file
+ * @returns Array of configuration names
+ */
+export function listConfigs(configPath: string): string[] {
+    const configs = loadConfigurations(configPath);
+    return configs.map(c => c.name);
+}
+
+/**
+ * Edits a configuration by name using the setup UI.
+ * @param configName - Name of the configuration to edit
+ * @returns The config name if edited successfully, null if cancelled
+ */
+export async function editConfig(configName: string): Promise<string | null> {
+    // Dynamic import of config-ui
+    // @ts-ignore - This will be replaced with a minified version in the build process
+    const { runSetup } = require('./config-ui.min.js');
+    return runSetup(configName, configName);
+}

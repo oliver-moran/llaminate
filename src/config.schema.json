@@ -16,6 +16,7 @@
                 "required": ["mime", "url"]
             }
         },
+        "description": { "type": "string" },
         "headers": {
             "type": "object",
             "additionalProperties": {

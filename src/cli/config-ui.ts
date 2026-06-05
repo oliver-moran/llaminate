@@ -37,6 +37,7 @@ try {
 
 interface SetupResult {
     name: string;
+    description?: string;
     endpoint: string;
     apiKey: string;
     model: string;
@@ -136,6 +137,7 @@ function saveConfig(config: SetupResult): void {
     if (existingIndex !== -1) {
         existingConfigs[existingIndex] = {
             name: config.name,
+            ...(config.description !== undefined && { description: config.description }),
             endpoint: config.endpoint,
             model: config.model,
             key: config.name.toUpperCase(),
@@ -144,6 +146,7 @@ function saveConfig(config: SetupResult): void {
     } else {
         existingConfigs.push({
             name: config.name,
+            ...(config.description !== undefined && { description: config.description }),
             endpoint: config.endpoint,
             model: config.model,
             key: config.name.toUpperCase(),
@@ -194,7 +197,7 @@ function saveApiKey(keyName: string, apiKey: string): void {
 /**
  * Starts the setup UI using Ink
  */
-async function startSetup(preFillName?: string): Promise<SetupResult | null> {
+async function startSetup(preFillName?: string, editingName?: string): Promise<SetupResult | null> {
     const React = await importEsm('react');
     const Ink = await importEsm('ink');
     const { render, Box, Text, useInput, useApp } = Ink;
@@ -202,26 +205,29 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
     
     // Load existing configs once for name uniqueness check
     const existingConfigs = loadExistingConfigs();
-    const existingNames = existingConfigs.map(c => c.name);
+    // Filter out the editing name from duplicate check
+    const existingNames = existingConfigs.map(c => c.name).filter(n => n !== editingName);
 
     return new Promise((resolve) => {
         const App = () => {
             const { exit } = useApp();
             const [name, setName] = React.useState(preFillName || '');
+            const [description, setDescription] = React.useState('');
             const [endpoint, setEndpoint] = React.useState('');
             const [apiKey, setApiKey] = React.useState('');
             const [model, setModel] = React.useState('');
             const [system, setSystem] = React.useState('');
             const [hidden, setHidden] = React.useState(true);
-            const [focusedField, setFocusedField] = React.useState<'name' | 'endpoint' | 'model' | 'key' | 'system' | 'save'>('name');
+            const [focusedField, setFocusedField] = React.useState<'name' | 'description' | 'endpoint' | 'model' | 'key' | 'system' | 'save'>('name');
 
-            const fields: ('name' | 'endpoint' | 'model' | 'key' | 'system')[] = ['name', 'endpoint', 'model', 'key', 'system'];
-            const allFields: ('name' | 'endpoint' | 'model' | 'key' | 'system' | 'save')[] = ['name', 'endpoint', 'model', 'key', 'system', 'save'];
+            const fields: ('name' | 'description' | 'endpoint' | 'model' | 'key' | 'system')[] = ['name', 'description', 'endpoint', 'model', 'key', 'system'];
+            const allFields: ('name' | 'description' | 'endpoint' | 'model' | 'key' | 'system' | 'save')[] = ['name', 'description', 'endpoint', 'model', 'key', 'system', 'save'];
 
             // Validation
             const trimmedName = name.trim().toLowerCase();
             const isNameValid = trimmedName !== '' && !existingNames.includes(trimmedName);
             const isNameDuplicate = trimmedName !== '' && existingNames.includes(trimmedName);
+            const isDescriptionValid = description.trim() !== '';
             const isEndpointValid = endpoint.trim() !== '' && isValidUrl(endpoint.trim().toLowerCase());
             const isModelValid = model.trim().toLowerCase() !== '';
             const isKeyValid = apiKey.trim() !== '';
@@ -231,6 +237,7 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
             const handleSubmit = () => {
                 if (focusedField === 'save') {
                     const trimmedName = name.trim().toLowerCase();
+                    const trimmedDescription = description.trim();
                     const trimmedEndpoint = endpoint.trim().toLowerCase();
                     const trimmedModel = model.trim().toLowerCase();
 
@@ -239,6 +246,7 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
 
                     resolve({
                         name: trimmedName,
+                        ...(trimmedDescription !== '' && { description: trimmedDescription }),
                         endpoint: trimmedEndpoint,
                         apiKey: apiKey.trim(),
                         model: trimmedModel,
@@ -254,6 +262,8 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
 
                 if (focusedField === 'name') {
                     if (trimmedName === '') return;
+                    setFocusedField('description');
+                } else if (focusedField === 'description') {
                     setFocusedField('endpoint');
                 } else if (focusedField === 'endpoint') {
                     if (trimmedEndpoint === '') return;
@@ -321,6 +331,7 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
                     if (focusedField !== 'save') {
                         const setters: Record<string, (v: string) => void> = {
                             name: setName,
+                            description: setDescription,
                             endpoint: setEndpoint,
                             model: setModel,
                             key: setApiKey,
@@ -328,7 +339,7 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
                         };
                         const setter = setters[focusedField];
                         if (setter) {
-                            const values: Record<string, string> = { name, endpoint, model, key: apiKey, system };
+                            const values: Record<string, string> = { name, description, endpoint, model, key: apiKey, system };
                             const currentValue = values[focusedField];
                             setter(currentValue.slice(0, -1));
                         }
@@ -341,6 +352,7 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
                 if (input && focusedField !== 'save') {
                     const setters: Record<string, (v: string) => void> = {
                         name: setName,
+                        description: setDescription,
                         endpoint: setEndpoint,
                         model: setModel,
                         key: setApiKey,
@@ -348,10 +360,10 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
                     };
                     const setter = setters[focusedField];
                     if (setter) {
-                        const values: Record<string, string> = { name, endpoint, model, key: apiKey, system };
+                        const values: Record<string, string> = { name, description, endpoint, model, key: apiKey, system };
                         const currentValue = values[focusedField];
                         let newValue = currentValue + input;
-                        // Convert to lowercase for name, endpoint, model (not for key or system)
+                        // Convert to lowercase for name, endpoint, model (not for key, system, or description)
                         if (focusedField === 'name' || focusedField === 'endpoint' || focusedField === 'model') {
                             newValue = newValue.toLowerCase();
                         }
@@ -364,7 +376,7 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
 
             const getFieldDisplay = (field: string) => {
                 const isFocused = focusedField === field;
-                const values: Record<string, string> = { name, endpoint, model, key: apiKey, system };
+                const values: Record<string, string> = { name, description, endpoint, model, key: apiKey, system };
                 const fieldValue = values[field];
 
                 if (field === 'key') {
@@ -378,6 +390,7 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
             // Label color: cyan if valid, gray if not
             const getLabelColor = (field: string) => {
                 if (field === 'name') return isNameValid ? 'cyan' : 'gray';
+                if (field === 'description') return isDescriptionValid ? 'cyan' : 'gray';
                 if (field === 'endpoint') return isEndpointValid ? 'cyan' : 'gray';
                 if (field === 'model') return isModelValid ? 'cyan' : 'gray';
                 if (field === 'key') return isKeyValid ? 'cyan' : 'gray';
@@ -423,6 +436,12 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
                 ),
                 h(Box, { flexDirection: 'row' },
                     h(Text, null, '  '),
+                    h(Text, { color: getLabelColor('description'), bold: focusedField === 'description' }, 'description'),
+                    h(Text, { color: getLabelColor('description') }, ': '),
+                    h(Text, { color: 'white' }, getFieldDisplay('description'))
+                ),
+                h(Box, { flexDirection: 'row' },
+                    h(Text, null, '  '),
                     h(Text, { color: getLabelColor('endpoint'), bold: focusedField === 'endpoint' }, 'endpoint'),
                     h(Text, { color: getLabelColor('endpoint') }, ': '),
                     h(Text, { color: 'white' }, getFieldDisplay('endpoint'))
@@ -465,9 +484,10 @@ async function startSetup(preFillName?: string): Promise<SetupResult | null> {
 /**
  * Runs the complete setup flow
  * @param preFillName - Optional name to pre-fill in the setup form
+ * @param editingName - Optional name of config being edited (to skip duplicate check)
  */
-export async function runSetup(preFillName?: string): Promise<string | null> {
-    const result = await startSetup(preFillName);
+export async function runSetup(preFillName?: string, editingName?: string): Promise<string | null> {
+    const result = await startSetup(preFillName, editingName);
     if (!result) return null;
 
     saveConfig(result);
