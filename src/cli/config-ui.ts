@@ -53,7 +53,8 @@ const ANSI = {
     gray: "\x1b[90m",
     bgMagenta: "\x1b[45m",
     underline: "\x1b[4m",
-    bold: "\x1b[1m"
+    bold: "\x1b[1m",
+    inverseCyan: "\x1b[30;46m"
 } as const;
 
 /**
@@ -427,13 +428,23 @@ async function startSetup(preFillName?: string, editingName?: string): Promise<S
                                 // Move to next element
                                 setFocusedSystemIndex(focusedSystemIndex + 1);
                             } else if (focusedSystemIndex >= 0 && focusedSystemIndex === systemArray.length - 1) {
-                                // At last element, move to save button (Tab no longer creates new entry)
-                                setFocusedSystemIndex(-2);
-                                setFocusedField('save');
+                                // At last element, move to save button only if form is valid, else wrap to name
+                                if (isFormValid) {
+                                    setFocusedSystemIndex(-2);
+                                    setFocusedField('save');
+                                } else {
+                                    setFocusedSystemIndex(-2);
+                                    setFocusedField('name');
+                                }
                             } else if (focusedSystemIndex === -1) {
-                                // At new input, move to save button
-                                setFocusedSystemIndex(-2);
-                                setFocusedField('save');
+                                // At new input, move to save button only if form is valid, else wrap to name
+                                if (isFormValid) {
+                                    setFocusedSystemIndex(-2);
+                                    setFocusedField('save');
+                                } else {
+                                    setFocusedSystemIndex(-2);
+                                    setFocusedField('name');
+                                }
                             }
                         }
                         return;
@@ -459,16 +470,30 @@ async function startSetup(preFillName?: string, editingName?: string): Promise<S
 
                     if (key.shift) {
                         // Shift+Tab: move back
+                        // If focused on save button (not in system), move to system instead of key
+                        if (focusedField === 'save' && focusedSystemIndex === -2) {
+                            setFocusedField('save');
+                            setFocusedSystemIndex(systemArray.length > 0 ? systemArray.length - 1 : -1);
+                            setNewSystemEntry('');
+                            return;
+                        }
                         nextIndex = (currentIndex - 1 + allFields.length) % allFields.length;
-                        // Skip save if not valid when moving backwards
+                        // Skip save if not valid when moving backward
                         if (allFields[nextIndex] === 'save' && !isFormValid) {
                             nextIndex = (nextIndex - 1 + allFields.length) % allFields.length;
+                            // After skipping save from name, go to system instead of key
+                            if (focusedField === 'name' && allFields[nextIndex] === 'key') {
+                                setFocusedField('save');
+                                setFocusedSystemIndex(systemArray.length > 0 ? systemArray.length - 1 : -1);
+                                setNewSystemEntry('');
+                                return;
+                            }
                         }
                     } else {
                         // Tab: move forward
                         nextIndex = (currentIndex + 1) % allFields.length;
-                        // Skip save if not valid when moving forward
-                        if (allFields[nextIndex] === 'save' && !isFormValid) {
+                        // Skip save if not valid when moving forward (except when coming from key to system)
+                        if (allFields[nextIndex] === 'save' && !isFormValid && !(focusedField === 'key' && nextIndex === allFields.length - 1)) {
                             nextIndex = (nextIndex + 1) % allFields.length;
                         }
                     }
@@ -478,7 +503,13 @@ async function startSetup(preFillName?: string, editingName?: string): Promise<S
                     // If moving to 'save' from 'key', enter system editing mode
                     if (focusedField === 'key' && nextField === 'save') {
                         setFocusedField('save');
-                        setFocusedSystemIndex(systemArray.length > 0 ? 0 : -1);
+                        // If system is empty, create first entry so user can start typing immediately
+                        if (systemArray.length === 0) {
+                            setSystemArray(['']);
+                            setFocusedSystemIndex(0);
+                        } else {
+                            setFocusedSystemIndex(systemArray.length > 0 ? 0 : -1);
+                        }
                         setNewSystemEntry('');
                         return;
                     }
@@ -632,10 +663,9 @@ async function startSetup(preFillName?: string, editingName?: string): Promise<S
                 );
             };
 
+            const isSaveFocused = focusedField === 'save' && focusedSystemIndex === -2;
+
             return isExiting ? null : h(Box, { flexDirection: 'column' },
-                // Header
-                h(Text, null, '👋 Llaminate v' + packageVersion),
-                h(Text, null, ' '),
                 // YAML-like config fields with proper indentation
                 h(Box, { flexDirection: 'row' },
                     h(Text, null, '- '),
@@ -672,12 +702,12 @@ async function startSetup(preFillName?: string, editingName?: string): Promise<S
                 // Single space margin
                 h(Text, null, ' '),
 
-                // Save button - only highlight when not in system editing
+                // Save button - cyan on black when focused, no underline
                 h(Box, { flexDirection: 'row' },
-                    h(Text, { color: isFormValid ? 'cyan' : 'gray', bold: focusedField === 'save' && focusedSystemIndex === -2, underline: focusedField === 'save' && focusedSystemIndex === -2 },
-                        '~/.llaminate/config.yaml'
+                    h(Text, { color: isSaveFocused ? null : (isFormValid ? 'cyan' : 'gray') },
+                        isSaveFocused ? `${ANSI.inverseCyan}~/.llaminate/config.yaml${ANSI.reset}` : '~/.llaminate/config.yaml'
                     ),
-                    isFormValid && h(Text, null, ' 💾')
+                    isSaveFocused && isFormValid && h(Text, null, ' 💾')
                 )
             );
         };

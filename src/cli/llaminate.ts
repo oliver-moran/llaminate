@@ -15,6 +15,8 @@ import { Llaminate } from '../llaminate.min.js';
 import { loadConfig, findConfigFile, loadConfigurations, removeConfig, validateConfigFile, listConfigs, editConfig, CliConfig } from './config.min.js';
 // @ts-ignore This will be replaced with a minified version in the build process
 import { runSetup } from './config-ui.min.js';
+// @ts-ignore Import chat module to patch Llaminate with chat functionality
+import './chat.min.js';
 
 /**
  * Validates the config file on launch.

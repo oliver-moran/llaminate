@@ -366,6 +366,10 @@ session can be exited by pressing Ctrl+C. The LLM usage tokens will be
 displayed when the session ends. While waiting for an LLM response,
 pressing Ctrl+C will cancel the in-flight request and return control to
 the prompt.
+
+NOTE: This is a placeholder method. To use chat functionality, you must
+import the chat module separately: `import "llaminate/chat"` or
+`import { chat } from "llaminate/chat"`.
 </div>
 
 
@@ -1455,6 +1459,9 @@ for await (const response of stream) {
 <div class="description">
     Starts an interactive chat session for the provided Llaminate instance.
 This static helper is equivalent to calling `instance.chat(...)`.
+
+NOTE: This is a placeholder method. To use chat functionality, you must
+import the chat module separately: `import "llaminate/chat"`.
 </div>
 
 

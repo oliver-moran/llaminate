@@ -25,10 +25,7 @@ import { USER_AGENT } from "./user-agent.min.js";
 // @ts-ignore This will be replaced with a minified version in the buildprocess
 import { RateLimiter } from "./ratelimiter.min.js";
 
-// @ts-ignore This will be replaced with a minified version in the buildprocess
-import { chat as runChat } from "./chat.min.js";
-
-const ajv = new Ajv();
+const ajv = new Ajv({ allowUnionTypes: true });
 const validate = {
     config: ajv.compile(require("./config.schema.json"))
 };
@@ -173,9 +170,12 @@ export class Llaminate {
     /**
      * Starts an interactive chat session for the provided Llaminate instance.
      * This static helper is equivalent to calling `instance.chat(...)`.
+     * 
+     * NOTE: This is a placeholder method. To use chat functionality, you must
+     * import the chat module separately: `import "llaminate/chat"`.
      */
     public static async chat(instance: Llaminate, config?: LlaminateConfig, callback?: ResponseCallback): Promise<void> {
-        return await runChat(instance, config, callback);
+        throw new Error("The chat module is not loaded. Import 'llaminate/chat' to enable chat functionality.");
     }
 
     /**
@@ -638,9 +638,13 @@ export class Llaminate {
     /**
      * Starts an interactive chat session in the command line interface. The
      * session can be exited by pressing Ctrl+C. The LLM usage tokens will be
-    * displayed when the session ends. While waiting for an LLM response,
-    * pressing Ctrl+C will cancel the in-flight request and return control to
-    * the prompt.
+     * displayed when the session ends. While waiting for an LLM response,
+     * pressing Ctrl+C will cancel the in-flight request and return control to
+     * the prompt.
+     * 
+     * NOTE: This is a placeholder method. To use chat functionality, you must
+     * import the chat module separately: `import "llaminate/chat"` or 
+     * `import { chat } from "llaminate/chat"`.
      * @param { LlaminateConfig } [config] Optional configuration settings for
      * this chat session. Supported behavior in chat mode:
      * - Most instance settings can be overridden for the duration of the
@@ -667,10 +671,7 @@ export class Llaminate {
      * });
      */
     async chat(config?: LlaminateConfig, callback?: ResponseCallback): Promise<void> {
-        return await runChat(this, config, callback, {
-            input: this.input,
-            output: this.output
-        });
+        throw new Error("The chat module is not loaded. Import 'llaminate/chat' to enable chat functionality.");
     }
 }
 

@@ -24,9 +24,9 @@
       "default": "./dist/llaminate.min.js"
     },
     "./chat": {
-      "types": "./dist/chat.d.ts",
-      "require": "./dist/chat.min.js",
-      "default": "./dist/chat.min.js"
+      "types": "./dist/cli/chat.d.ts",
+      "require": "./dist/cli/chat.min.js",
+      "default": "./dist/cli/chat.min.js"
     },
     "./tools": {
       "types": "./dist/tools/index.d.ts",

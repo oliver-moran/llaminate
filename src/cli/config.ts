@@ -264,7 +264,7 @@ export function validateConfigFile(configPath: string): void {
     // Load Ajv for validation
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const Ajv = require('ajv');
-    const ajv = new Ajv();
+    const ajv = new Ajv({ allowUnionTypes: true });
     const validate = ajv.compile(schema);
 
     // Validate each configuration

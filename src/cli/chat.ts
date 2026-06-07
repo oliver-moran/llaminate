@@ -5,10 +5,10 @@
  * LICENSE file at https://github.com/oliver-moran/llaminate
  */
 
-/// <reference path="./llaminate.d.ts" />
+/// <reference path="../llaminate.d.ts" />
 
 // @ts-ignore This will be replaced with a minified version in the buildprocess
-const { version: LLAMINATE_VERSION } = require("./build-info.json");
+const { version: LLAMINATE_VERSION } = require("../build-info.json");
 
 interface ChatTarget {
     readonly config: LlaminateConfig;
@@ -481,7 +481,7 @@ async function runInkChat(
 /**
  * Starts an interactive terminal chat session for a Llaminate instance.
  */
-export async function chat(
+async function chat(
     target: ChatTarget,
     config?: LlaminateConfig,
     callback?: ResponseCallback,
@@ -519,4 +519,22 @@ export async function chat(
     } finally {
         state.request?.abort();
     }
+}
+
+// Patch Llaminate class with real chat implementation when this module is imported
+// @ts-ignore - Accessing Llaminate class for patching
+const LlaminateClass = require("../llaminate.min.js").Llaminate;
+if (LlaminateClass) {
+    // Patch static chat method
+    LlaminateClass.chat = async function(instance: any, config?: LlaminateConfig, callback?: ResponseCallback): Promise<void> {
+        return await chat(instance, config, callback);
+    };
+    
+    // Patch instance chat method
+    LlaminateClass.prototype.chat = async function(this: any, config?: LlaminateConfig, callback?: ResponseCallback): Promise<void> {
+        return await chat(this, config, callback, {
+            input: this.input,
+            output: this.output
+        });
+    };
 }
