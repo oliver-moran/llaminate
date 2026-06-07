@@ -273,6 +273,10 @@ export class Llaminate {
             ...this.config,
             ...config,
 
+            // System messages need to be converted to arrays if provided as
+            // strings
+            system: toArray(config.system),
+
             // Limits need to be merged separately rather than overwritten with
             // a reference to prevent accidential mutations
             limits: {
@@ -709,7 +713,7 @@ function generateCompletionConfig(config?: LlaminateConfig, stream: boolean = fa
         key: this.config.key,
 
         // Combine system messages from instance config and provided config
-        system: this.config.system.concat(config?.system || []),
+        system: this.config.system.concat(toArray(config?.system) || []),
 
         // Populate the options by merging the instance options with any
         // provided overrides, and set the streaming options as appropriate.
@@ -1208,8 +1212,9 @@ async function handleTools(role: Role, content: string, calls: any, context: Con
                     
                     const system = [];
                     
-                    if (response?.["@system"] && Array.isArray(response["@system"])) {
-                        response["@system"].forEach((message: string | any, i: number) => {
+                    if (response?.["@system"] && (typeof response["@system"] === "string" || Array.isArray(response["@system"]))) {
+                        const arr = toArray(response["@system"]);
+                        arr?.forEach((message: string | any, i: number) => {
                             if (typeof message === "string") system.push({ role: Llaminate.SYSTEM, content: message });
                             else if (message.type === Llaminate.TEXT && typeof message.text === "string") system.push({ role: Llaminate.SYSTEM, content: message.text });
                         });
@@ -1627,4 +1632,19 @@ function isBase64DataUri(uri: string): boolean {
 function getTypeFromDataUri(uri: string): string | null {
     const match = uri.match(/^data:(.*);base64,/);
     return match ? match[1] : null;
+}
+
+/**
+ * Converts a value to an array if it is not already an array. If the value is
+ * undefined, it returns undefined. This is used to handle the case where system
+ * messages can be provided as a single string or an array of strings.
+ * @param value The value to convert to an array.
+ * @returns An array containing the value if it was not already an array, or the
+ * original array if it was already an array. If the value is undefined, it
+ * returns undefined.
+ * @private
+ */
+function toArray(value: any): any[] | undefined {
+    if (Array.isArray(value)) return value;
+    else if (value !== undefined) return [value];
 }

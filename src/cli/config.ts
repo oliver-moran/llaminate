@@ -16,6 +16,7 @@ import * as os from 'node:os';
  */
 export interface CliConfig {
     name: string;
+    description?: string;
     endpoint: string;
     model: string;
     key: string; // This is the name of the key in the .env file

@@ -585,6 +585,9 @@ in-flight request.</td>
             <td class="type">
             
                 
+<span class="param-type">string</span>
+|
+
 <span class="param-type">Array.&lt;string></span>
 
 
@@ -603,9 +606,9 @@ in-flight request.</td>
 
             
 
-            <td class="description last">System prompts to include with every request. A
-tool call can also return system prompts in its response using {"@system": 
-[...]}, which will be included in the context for that completion.</td>
+            <td class="description last">System prompts to include with every
+request. A tool call can also return system prompts in its response using
+{"@system": [...]}, which will be included in the context for that completion.</td>
         </tr>
 
     
@@ -853,6 +856,8 @@ controller.abort();</code></pre>
   "You are an assistant who answers questions about movies.",
   "You are always excited about movie trivia and love sharing fun facts.",
 ] }</code></pre>
+
+    <pre class="prettyprint"><code>{ system: "You are an assistant who provides concise answers to questions." }</code></pre>
 
     <pre class="prettyprint"><code>{ tools: [
   {

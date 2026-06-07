@@ -387,8 +387,6 @@ async function runInkChat(
                 return () => clearInterval(timer);
             }, [busy, activeOutput]);
 
-
-
             useEffect(() => {
                 if (!isExiting) return;
 

@@ -77,8 +77,9 @@ async function main(): Promise<void> {
                 const config = configs[i];
                 // Line 1: bold name + normal description
                 const boldName = `${bold}${config.name}${reset}`;
-                const description = config.description || '';
-                console.log(`${boldName} ${description}`);
+                const description = (config as any).description || '';
+                const descriptionText = description ? ` ${description}` : '';
+                console.log(`${boldName}${descriptionText}`);
                 
                 // Line 2: grey model <grey endpoint>
                 const greyModel = `${grey}${config.model}${reset}`;
@@ -120,12 +121,7 @@ async function main(): Promise<void> {
             process.exit(1);
         }
         
-        const editedConfigName = await editConfig(configNameToEdit);
-        if (editedConfigName) {
-            console.log(`Configuration '${editedConfigName}' edited successfully.`);
-        } else {
-            console.log('Edit cancelled.');
-        }
+        await editConfig(configNameToEdit);
         process.exit(0);
     }
 

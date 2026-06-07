@@ -116,14 +116,16 @@
  * { signal: controller.signal }
  * // To abort the request:
  * controller.abort();
- * @property {string[]} [system] System prompts to include with every request. A
- * tool call can also return system prompts in its response using {"@system": 
- * [...]}, which will be included in the context for that completion.
+ * @property {string | string[]} [system] System prompts to include with every
+ * request. A tool call can also return system prompts in its response using
+ * {"@system": [...]}, which will be included in the context for that completion.
  * @example
  * { system: [
  *   "You are an assistant who answers questions about movies.",
  *   "You are always excited about movie trivia and love sharing fun facts.",
  * ] }
+ * @example
+ * { system: "You are an assistant who provides concise answers to questions." }
  * @property {Array<{
  *   function: {
  *     name: string,

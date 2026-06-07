@@ -116,7 +116,7 @@
         },
         "signal": { "not": { "type": "null" } },
         "system": {
-            "type": "array",
+            "type": ["string", "array"],
             "items": { "type": "string" }
         },
         "tools": {
