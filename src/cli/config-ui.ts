@@ -236,6 +236,7 @@ async function startSetup(preFillName?: string, editingName?: string): Promise<S
             // focusedSystemIndex: which system entry is focused, or -1 for new entry input, or -2 for not in system
             const [focusedSystemIndex, setFocusedSystemIndex] = React.useState<number>(-2);
             const [hidden, setHidden] = React.useState(true);
+            const [isExiting, setIsExiting] = React.useState(false);
             const [focusedField, setFocusedField] = React.useState<'name' | 'description' | 'endpoint' | 'model' | 'key' | 'save'>('name');
 
             const fields: ('name' | 'description' | 'endpoint' | 'model' | 'key')[] = ['name', 'description', 'endpoint', 'model', 'key'];
@@ -299,15 +300,18 @@ async function startSetup(preFillName?: string, editingName?: string): Promise<S
                         finalSystemArray.push(newSystemEntry.trim());
                     }
 
-                    resolve({
-                        name: trimmedName,
-                        ...(trimmedDescription !== '' && { description: trimmedDescription }),
-                        endpoint: trimmedEndpoint,
-                        apiKey: apiKey.trim(),
-                        model: trimmedModel,
-                        system: finalSystemArray.length > 0 ? finalSystemArray : undefined
-                    });
-                    exit();
+                    setIsExiting(true);
+                    setTimeout(() => {
+                        resolve({
+                            name: trimmedName,
+                            ...(trimmedDescription !== '' && { description: trimmedDescription }),
+                            endpoint: trimmedEndpoint,
+                            apiKey: apiKey.trim(),
+                            model: trimmedModel,
+                            system: finalSystemArray.length > 0 ? finalSystemArray : undefined
+                        });
+                        exit();
+                    }, 10);
                     return;
                 }
 
@@ -338,8 +342,11 @@ async function startSetup(preFillName?: string, editingName?: string): Promise<S
 
             useInput((input: string, key: any) => {
                 if (key.ctrl && input === 'c') {
-                    resolve(null);
-                    exit();
+                    setIsExiting(true);
+                    setTimeout(() => {
+                        resolve(null);
+                        exit();
+                    }, 10);
                     return;
                 }
 
@@ -625,7 +632,7 @@ async function startSetup(preFillName?: string, editingName?: string): Promise<S
                 );
             };
 
-            return h(Box, { flexDirection: 'column' },
+            return isExiting ? null : h(Box, { flexDirection: 'column' },
                 // Header
                 h(Text, null, '👋 Llaminate v' + packageVersion),
                 h(Text, null, ' '),
